@@ -1,0 +1,157 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==== ENUMS ====
+enum Role {
+  USER
+  ADMIN
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CASH
+  CREDIT_CARD
+  INVESTMENT
+  OTHER
+}
+
+// ==== MODELS ====
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  name          String?
+  image         String?
+  role          Role     @default(USER)
+  emailVerified DateTime? @map("email_verified")
+  password      String?   // hashed password
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  accounts      Account[]     @relation("UserAccounts")
+  categories    Category[]    @relation("UserCategories")
+  transactions  Transaction[] @relation("UserTransactions")
+  monthlySummaries MonthlySummary[] @relation("UserMonthlySummaries")
+  auditLogs     AuditLog[]    @relation("UserAuditLogs")
+  resetToken    ResetToken?   @relation("UserResetToken")
+
+  @@index([email])
+}
+
+model ResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation("UserResetToken", fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
+
+model Account {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation("UserAccounts", fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  type          AccountType
+  balance       Decimal  @default(0) @db.Decimal(15, 2)
+  currency      String   @default("BRL")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  transactions Transaction[] @relation("AccountTransactions")
+
+  @@unique([userId, name])
+  @@index([userId, isActive])
+}
+
+model Category {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation("UserCategories", fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  type          TransactionType
+  icon          String?   // e.g., lucide-react icon name
+  color         String?   // hex code
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  transactions Transaction[] @relation("CategoryTransactions")
+
+  @@unique([userId, name, type])
+  @@index([userId, isActive, type])
+}
+
+model Transaction {
+  id            String   @id @default(uuid())
+  userId        String
+  accountId     String
+  categoryId    String
+  amount        Decimal  @db.Decimal(15, 2) // always positive
+  type          TransactionType
+  description   String?
+  date          DateTime // when the transaction occurred
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  user          User     @relation("UserTransactions", fields: [userId], references: [id], onDelete: Cascade)
+  account       Account  @relation("AccountTransactions", fields: [accountId], references: [id])
+  category      Category @relation("CategoryTransactions", fields: [categoryId], references: [id])
+
+  @@index([userId, date])
+  @@index([accountId, date])
+  @@index([categoryId, date])
+  @@index([userId, type, date])
+}
+
+model MonthlySummary {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation("UserMonthlySummaries", fields: [userId], references: [id], onDelete: Cascade)
+  year          Int
+  month         Int      // 1-12
+  totalIncome   Decimal  @default(0) @db.Decimal(15, 2)
+  totalExpense  Decimal  @default(0) @db.Decimal(15, 2)
+  netBalance    Decimal  @default(0) @db.Decimal(15, 2)
+  savingsRate   Float?   // percentage, nullable when income is zero
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, year, month])
+  @@index([userId, year])
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  userId        String?  // nullable for system‑generated logs
+  user          User?    @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
+  action        String   // e.g., "CREATE_USER", "UPDATE_ROLE"
+  entityType    String   // e.g., "User", "Account"
+  entityId      String   // id of the affected entity
+  changesJson   String   // JSON string with before/after (non‑sensitive)
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+}
