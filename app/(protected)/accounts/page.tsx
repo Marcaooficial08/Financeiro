@@ -12,6 +12,7 @@ export default function AccountsPage() {
   const [formData, setFormData] = useState({
     name: "",
     type: "CHECKING" as const,
+    balance: "",
   });
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -42,12 +43,13 @@ export default function AccountsPage() {
     const data = new FormData();
     data.append("name", formData.name);
     data.append("type", formData.type);
+    data.append("balance", formData.balance || "0");
 
     try {
       const result = await createAccount(data);
       if (result.success) {
         setMessage({ type: "success", text: result.message || "Conta criada com sucesso!" });
-        setFormData({ name: "", type: "CHECKING" });
+        setFormData({ name: "", type: "CHECKING", balance: "" });
         setShowForm(false);
         await loadAccounts();
       } else {
@@ -135,6 +137,23 @@ export default function AccountsPage() {
               <option value="INVESTMENT">Investimento</option>
               <option value="OTHER">Outro</option>
             </select>
+          </div>
+
+          <div className="mb-4">
+            <label htmlFor="balance" className="block text-sm font-medium text-gray-700 mb-2">
+              Saldo Inicial (R$)
+            </label>
+            <input
+              type="number"
+              id="balance"
+              step="0.01"
+              min="0"
+              value={formData.balance}
+              onChange={(e) => setFormData({ ...formData, balance: e.target.value })}
+              placeholder="0,00"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">Deixe em branco se a conta começa zerada.</p>
           </div>
 
           <button

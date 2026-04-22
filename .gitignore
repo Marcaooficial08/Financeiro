@@ -35,3 +35,7 @@ check-db.mjs
 check-users.sql
 prisma_output.txt
 test_auth_flow*.py
+test_initial_balance.py
+
+# local tooling config
+.mcp.json
