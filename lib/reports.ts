@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { TransactionType } from "@prisma/client"
+import { TransactionType, AccountType } from "@prisma/client"
 
 // 📊 TIPO DE RETORNO PARA AGREGADOS
 interface CategorySummary {
@@ -20,12 +20,23 @@ interface MonthlySummary {
   netCashflow: number
 }
 
+interface TicketSummary {
+  income: number
+  expense: number
+  net: number
+  transactionCount: number
+}
+
 interface ReportData {
   categories: CategorySummary[]
   monthly: MonthlySummary[]
   totalIncome: number
   totalExpense: number
   netCashflow: number
+  /** @deprecated manter por compatibilidade — prefira ticketMeal/ticketFuel */
+  ticket: TicketSummary
+  ticketMeal: TicketSummary
+  ticketFuel: TicketSummary
   period: { start: Date; end: Date }
 }
 
@@ -195,18 +206,61 @@ function exportToCSV(data: any[], filename: string) {
   return csvRows.join('\n')
 }
 
+// 🎫 RESUMO DE TICKET (transações em contas do tipo informado)
+async function getTicketSummary(
+  userId: string,
+  accountType: AccountType,
+  start?: Date,
+  end?: Date,
+): Promise<TicketSummary> {
+  const { start: startDate, end: endDate } = validatePeriod(start, end)
+
+  const grouped = await prisma.transaction.groupBy({
+    by: ['type'],
+    where: {
+      userId,
+      date: { gte: startDate, lte: endDate },
+      account: { type: accountType },
+    },
+    _sum: { amount: true },
+    _count: { _all: true },
+  })
+
+  let income = 0
+  let expense = 0
+  let transactionCount = 0
+  for (const row of grouped) {
+    const sum = row._sum?.amount ? Number(row._sum.amount) : 0
+    transactionCount += row._count?._all ?? 0
+    if (row.type === 'INCOME') income = sum
+    else expense = sum
+  }
+
+  return { income, expense, net: income - expense, transactionCount }
+}
+
 // 📋 API DE RELATÓRIOS PRINCIPAL
 export async function generateReport(userId: string, start?: Date, end?: Date): Promise<ReportData> {
   try {
     const { start: startDate, end: endDate } = validatePeriod(start, end)
-    const [categories, monthly, basic] = await Promise.all([
+    const [categories, monthly, basic, ticketMeal, ticketFuel] = await Promise.all([
       getCategorySummary(userId, startDate, endDate),
       getMonthlySummary(userId, startDate, endDate),
       getBasicSummary(userId, startDate, endDate),
+      getTicketSummary(userId, 'TICKET_MEAL', startDate, endDate),
+      getTicketSummary(userId, 'TICKET_FUEL', startDate, endDate),
     ])
 
     const totalIncome = categories.filter(c => c.type === 'INCOME').reduce((sum, c) => sum + c.total, 0)
     const totalExpense = categories.filter(c => c.type === 'EXPENSE').reduce((sum, c) => sum + c.total, 0)
+
+    // Compatibilidade: campo legado `ticket` agregando os dois.
+    const ticket: TicketSummary = {
+      income: ticketMeal.income + ticketFuel.income,
+      expense: ticketMeal.expense + ticketFuel.expense,
+      net: ticketMeal.net + ticketFuel.net,
+      transactionCount: ticketMeal.transactionCount + ticketFuel.transactionCount,
+    }
 
     return {
       categories,
@@ -214,6 +268,9 @@ export async function generateReport(userId: string, start?: Date, end?: Date): 
       totalIncome,
       totalExpense,
       netCashflow: basic.netCashflow,
+      ticket,
+      ticketMeal,
+      ticketFuel,
       period: { start: startDate, end: endDate },
     }
   } catch (error) {

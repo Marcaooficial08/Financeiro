@@ -6,15 +6,23 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { z } from "zod";
-import { getTransactionEffect } from "@/lib/transactions";
+import { getTransactionEffectForCategory } from "@/lib/transactions";
+import { getRequiredAccountType, isTicketAccountType } from "@/lib/defaults";
+
+function parseDecimalInput(raw: unknown): number {
+  if (typeof raw !== "string" || raw.trim() === "") return NaN;
+  const normalized = raw.trim().replace(/\s/g, "").replace(/R\$/gi, "").replace(/\./g, "").replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
 
 const transactionSchema = z.object({
-  amount: z.number().positive("O valor deve ser positivo"),
+  amount: z.number().positive("O valor deve ser positivo").max(9_999_999_999_999.99, "Valor acima do limite suportado"),
   type: z.enum(["INCOME", "EXPENSE"]),
-  description: z.string().max(200, "A descrição deve ter menos de 200 caracteres"),
+  description: z.string().max(200, "A descrição deve ter menos de 200 caracteres").optional().default(""),
   date: z.date(),
-  accountId: z.string(),
-  categoryId: z.string(),
+  accountId: z.string().min(1, "Selecione uma conta"),
+  categoryId: z.string().min(1, "Selecione uma categoria"),
 });
 
 export async function createTransaction(formData: FormData) {
@@ -34,7 +42,7 @@ export async function createTransaction(formData: FormData) {
     const rawCategoryId = formData.get("categoryId");
 
     const data = transactionSchema.parse({
-      amount: typeof rawAmount === "string" ? parseFloat(rawAmount) : 0,
+      amount: parseDecimalInput(rawAmount),
       type: typeof rawType === "string" ? rawType as "INCOME" | "EXPENSE" : "EXPENSE",
       description: typeof rawDescription === "string" ? rawDescription.trim() : "",
       date: typeof rawDate === "string" ? new Date(rawDate) : new Date(),
@@ -56,10 +64,40 @@ export async function createTransaction(formData: FormData) {
       return { success: false, error: "Categoria não encontrada ou incompatível com o tipo da transação" };
     }
 
-    if (data.type === "EXPENSE" && data.amount > 0) {
+    // Roteamento categoria → tipo de conta
+    const requiredAccountType = getRequiredAccountType(category.systemKey);
+    if (requiredAccountType) {
+      if (account.type !== requiredAccountType) {
+        const label =
+          requiredAccountType === "TICKET_MEAL"
+            ? "Ticket refeição"
+            : requiredAccountType === "TICKET_FUEL"
+              ? "Ticket combustível"
+              : requiredAccountType;
+        return {
+          success: false,
+          error: `A categoria ${category.name} só pode ser usada em contas do tipo ${label}.`,
+        };
+      }
+    } else if (isTicketAccountType(account.type)) {
+      // Categoria não-ticket não pode ser lançada em conta de ticket.
+      return {
+        success: false,
+        error: "Esta categoria não pode ser usada em contas Ticket (refeição ou combustível).",
+      };
+    }
+
+    // Cálculo do efeito no saldo (Uber sempre debita).
+    const effect = getTransactionEffectForCategory(data.type, data.amount, category.systemKey);
+
+    // Guarda de saldo: qualquer movimentação que resulte em débito não pode exceder o saldo.
+    if (effect < 0) {
       const accountBalance = Number(account.balance);
-      if (data.amount > accountBalance) {
-        return { success: false, error: `Saldo insuficiente. Saldo atual: R$ ${accountBalance.toFixed(2)}` };
+      if (Math.abs(effect) > accountBalance) {
+        return {
+          success: false,
+          error: `Saldo insuficiente. Saldo atual: R$ ${accountBalance.toFixed(2)}`,
+        };
       }
     }
 
@@ -80,7 +118,6 @@ export async function createTransaction(formData: FormData) {
         },
       });
 
-      const effect = getTransactionEffect(data.type, data.amount);
       await tx.account.update({
         where: { id: data.accountId },
         data: {
@@ -143,6 +180,7 @@ export async function deleteTransaction(id: string) {
         where: { id, userId },
         include: {
           account: true,
+          category: true,
         },
       });
 
@@ -150,7 +188,13 @@ export async function deleteTransaction(id: string) {
         throw new Error("Transação não encontrada");
       }
 
-      const effect = getTransactionEffect(transaction.type, Number(transaction.amount));
+      // Reverte exatamente o efeito originalmente aplicado, considerando a regra
+      // especial do Uber (sempre debita) — do contrário Uber INCOME seria revertido errado.
+      const effect = getTransactionEffectForCategory(
+        transaction.type,
+        Number(transaction.amount),
+        transaction.category?.systemKey,
+      );
       await tx.account.update({
         where: { id: transaction.accountId, userId },
         data: {

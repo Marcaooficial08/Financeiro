@@ -7,10 +7,30 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { z } from "zod";
 
+function parseDecimalInput(raw: unknown): number {
+  if (typeof raw !== "string" || raw.trim() === "") return 0;
+  const normalized = raw.trim().replace(/\s/g, "").replace(/R\$/gi, "").replace(/\./g, "").replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
 const accountSchema = z.object({
   name: z.string().min(2, "O nome da conta deve ter ao menos 2 caracteres"),
-  type: z.enum(["CHECKING", "SAVINGS", "CASH", "CREDIT_CARD", "INVESTMENT", "OTHER"]),
-  balance: z.number().min(0, "O saldo inicial não pode ser negativo").default(0),
+  type: z.enum([
+    "CHECKING",
+    "SAVINGS",
+    "CASH",
+    "CREDIT_CARD",
+    "INVESTMENT",
+    "TICKET_MEAL",
+    "TICKET_FUEL",
+    "OTHER",
+  ]),
+  balance: z.number().min(0, "O saldo inicial não pode ser negativo").max(9_999_999_999_999.99, "Valor acima do limite suportado").default(0),
+});
+
+const balanceUpdateSchema = z.object({
+  balance: z.number().min(0, "O saldo não pode ser negativo").max(9_999_999_999_999.99, "Valor acima do limite suportado"),
 });
 
 export async function createAccount(formData: FormData) {
@@ -29,7 +49,7 @@ export async function createAccount(formData: FormData) {
     const data = accountSchema.parse({
       name: typeof rawName === "string" ? rawName.trim() : rawName,
       type: typeof rawType === "string" ? rawType : undefined,
-      balance: typeof rawBalance === "string" && rawBalance !== "" ? parseFloat(rawBalance) : 0,
+      balance: parseDecimalInput(rawBalance),
     });
 
     await prisma.account.create({
@@ -65,13 +85,45 @@ export async function getAccounts() {
 
     const accounts = await prisma.account.findMany({
       where: { userId },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ type: "asc" }, { name: "asc" }],
     });
 
     return { success: true, data: accounts };
   } catch (error) {
     console.error("Erro ao buscar contas:", error);
     return { success: false, error: "Erro ao buscar contas" };
+  }
+}
+
+export async function updateAccountBalance(id: string, rawBalance: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
+
+    if (!userId) {
+      return { success: false, error: "Usuário não autenticado" };
+    }
+
+    const existing = await prisma.account.findFirst({ where: { id, userId } });
+    if (!existing) {
+      return { success: false, error: "Conta não encontrada" };
+    }
+
+    const data = balanceUpdateSchema.parse({ balance: parseDecimalInput(rawBalance) });
+
+    await prisma.account.update({
+      where: { id },
+      data: { balance: data.balance },
+    });
+
+    revalidatePath("/accounts");
+    return { success: true, message: "Saldo atualizado com sucesso!" };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues.map((item) => item.message).join(", ") };
+    }
+    console.error("Erro ao atualizar saldo:", error);
+    return { success: false, error: messages.error.update };
   }
 }
 

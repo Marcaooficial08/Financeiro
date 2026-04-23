@@ -24,6 +24,8 @@ enum AccountType {
   CASH
   CREDIT_CARD
   INVESTMENT
+  TICKET_MEAL
+  TICKET_FUEL
   OTHER
 }
 
@@ -90,6 +92,7 @@ model Category {
   type          TransactionType
   icon          String?   // e.g., lucide-react icon name
   color         String?   // hex code
+  systemKey     String?  @map("system_key") // stable id for system-seeded categories (e.g. TICKET_MEAL, SALARY)
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -98,6 +101,7 @@ model Category {
   transactions Transaction[] @relation("CategoryTransactions")
 
   @@unique([userId, name, type])
+  @@unique([userId, systemKey])
   @@index([userId, isActive, type])
 }
 

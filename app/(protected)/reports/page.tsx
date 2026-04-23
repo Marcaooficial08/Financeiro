@@ -95,14 +95,14 @@ export default function ReportsPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Relatórios Financeiros</h1>
           <p className="text-gray-500 dark:text-gray-400">Análise completa das suas finanças</p>
         </div>
 
-        <section className="mb-6 rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-sm">
+        <section className="mb-6 rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-sm dark:shadow-gray-900/50">
           <div className="grid gap-4 md:grid-cols-4 items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Período Inicial</label>
@@ -110,7 +110,7 @@ export default function ReportsPage() {
                 type="date"
                 value={startDate}
                 onChange={(event) => setStartDate(event.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 dark:bg-gray-900 dark:border-gray-700"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
               />
             </div>
             <div>
@@ -119,7 +119,7 @@ export default function ReportsPage() {
                 type="date"
                 value={endDate}
                 onChange={(event) => setEndDate(event.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 dark:bg-gray-900 dark:border-gray-700"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
               />
             </div>
             <button
@@ -133,12 +133,12 @@ export default function ReportsPage() {
             <button
               type="button"
               onClick={exportCSV}
-              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
             >
               Exportar CSV
             </button>
           </div>
-          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+          {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
         </section>
 
         {loading ? (
@@ -147,7 +147,7 @@ export default function ReportsPage() {
           </div>
         ) : report ? (
           <div className="space-y-6">
-            <section className="rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-sm">
+            <section className="rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-sm dark:shadow-gray-900/50">
               <div className="mb-4">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Resumo Geral</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -182,7 +182,75 @@ export default function ReportsPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-sm">
+            {report.ticketMeal && (
+              <section className="rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-6 shadow-sm dark:shadow-gray-900/50">
+                <div className="mb-4">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Resumo Ticket Refeição</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Movimentações em contas do tipo Ticket Refeição no período
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-xl bg-green-100 p-4 dark:bg-green-900/40">
+                    <p className="text-sm font-medium text-green-700 dark:text-green-200">Receitas</p>
+                    <p className="mt-3 text-2xl font-bold text-green-800 dark:text-green-100">
+                      R$ {report.ticketMeal.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-red-100 p-4 dark:bg-red-900/40">
+                    <p className="text-sm font-medium text-red-700 dark:text-red-200">Despesas</p>
+                    <p className="mt-3 text-2xl font-bold text-red-800 dark:text-red-100">
+                      R$ {report.ticketMeal.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-amber-100 p-4 dark:bg-amber-900/40">
+                    <p className="text-sm font-medium text-amber-700 dark:text-amber-200">Saldo Líquido</p>
+                    <p className={`mt-3 text-2xl font-bold ${report.ticketMeal.net >= 0 ? 'text-amber-800 dark:text-amber-100' : 'text-red-800 dark:text-red-100'}`}>
+                      R$ {report.ticketMeal.net.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                      {report.ticketMeal.transactionCount} {report.ticketMeal.transactionCount === 1 ? 'movimentação' : 'movimentações'}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {report.ticketFuel && (
+              <section className="rounded-2xl bg-gradient-to-r from-rose-50 to-red-50 dark:from-rose-900/20 dark:to-red-900/20 p-6 shadow-sm dark:shadow-gray-900/50">
+                <div className="mb-4">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Resumo Ticket Combustível</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Movimentações em contas do tipo Ticket Combustível no período
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-xl bg-green-100 p-4 dark:bg-green-900/40">
+                    <p className="text-sm font-medium text-green-700 dark:text-green-200">Receitas</p>
+                    <p className="mt-3 text-2xl font-bold text-green-800 dark:text-green-100">
+                      R$ {report.ticketFuel.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-red-100 p-4 dark:bg-red-900/40">
+                    <p className="text-sm font-medium text-red-700 dark:text-red-200">Despesas</p>
+                    <p className="mt-3 text-2xl font-bold text-red-800 dark:text-red-100">
+                      R$ {report.ticketFuel.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-rose-100 p-4 dark:bg-rose-900/40">
+                    <p className="text-sm font-medium text-rose-700 dark:text-rose-200">Saldo Líquido</p>
+                    <p className={`mt-3 text-2xl font-bold ${report.ticketFuel.net >= 0 ? 'text-rose-800 dark:text-rose-100' : 'text-red-800 dark:text-red-100'}`}>
+                      R$ {report.ticketFuel.net.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="mt-2 text-xs text-rose-700 dark:text-rose-300">
+                      {report.ticketFuel.transactionCount} {report.ticketFuel.transactionCount === 1 ? 'movimentação' : 'movimentações'}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            <section className="rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-sm dark:shadow-gray-900/50">
               <div className="mb-4">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Agrupamento por Categoria</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Top 10 categorias no período selecionado</p>
@@ -205,7 +273,7 @@ export default function ReportsPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-sm">
+            <section className="rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-sm dark:shadow-gray-900/50">
               <div className="mb-4">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Resumo Mensal</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Evolução dos saldos ao longo do tempo</p>
@@ -225,7 +293,7 @@ export default function ReportsPage() {
                       </div>
                       <div className="flex justify-between font-semibold">
                         <span>Líquido:</span>
-                        <span className={m.netCashflow >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        <span className={m.netCashflow >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                           R$ {m.netCashflow.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </span>
                       </div>

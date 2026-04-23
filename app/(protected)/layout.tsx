@@ -10,7 +10,7 @@ export default async function ProtectedLayout({
   const session = await getServerSession(authOptions);
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="min-h-screen flex bg-gray-50 dark:bg-gray-950">
       {/* Sidebar */}
       <Sidebar session={session} />
 

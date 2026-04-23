@@ -56,13 +56,13 @@ export default async function DashboardPage() {
   const totalExpense = Number(monthlySummary?.totalExpense ?? 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <header className="bg-white shadow-sm dark:bg-gray-900 dark:shadow-gray-900/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
             Dashboard, {user.name}!
           </h1>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Resumo financeiro de {currentMonth
               .toString()
               .padStart(2, "0")}

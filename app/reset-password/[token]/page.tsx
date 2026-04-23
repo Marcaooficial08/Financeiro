@@ -57,8 +57,8 @@ export default function ResetTokenPage({ params }: { params: { token: string } }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <div className="w-full max-w-md space-y-6 bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-lg">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+      <div className="w-full max-w-md space-y-6 bg-white dark:bg-gray-900 p-8 rounded-3xl shadow-lg dark:shadow-gray-900/50">
         {success ? (
           <div className="text-center">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Senha redefinida!</h1>
@@ -89,11 +89,11 @@ export default function ResetTokenPage({ params }: { params: { token: string } }
                 <input
                   type="password"
                   {...register("newPassword")}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
                   placeholder="Digite sua nova senha"
                 />
                 {errors.newPassword && (
-                  <p className="mt-2 text-sm text-red-600">{errors.newPassword.message}</p>
+                  <p className="mt-2 text-sm text-red-600 dark:text-red-400">{errors.newPassword.message}</p>
                 )}
               </div>
 
