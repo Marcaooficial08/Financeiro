@@ -1,8 +1,24 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createCategory, getCategories, deleteCategory, updateCategory } from "./actions";
+import {
+  createCategory,
+  getCategories,
+  deleteCategory,
+  updateCategory,
+} from "./actions";
 import { Category } from "@prisma/client";
+
+const smallCaps = "uppercase tracking-[0.22em] text-[10px] font-medium";
+
+const inputCls =
+  "w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100 dark:placeholder-gray-600";
+
+const primaryBtn =
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200";
+
+const ghostBtn =
+  "inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800";
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -17,7 +33,10 @@ export default function CategoriesPage() {
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState({ name: "", color: "", icon: "" });
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
     loadCategories();
@@ -29,7 +48,10 @@ export default function CategoriesPage() {
       if (result.success) {
         setCategories(result.data || []);
       } else {
-        setMessage({ type: "error", text: result.error || "Erro ao carregar categorias" });
+        setMessage({
+          type: "error",
+          text: result.error || "Erro ao carregar categorias",
+        });
       }
     } catch (error) {
       setMessage({ type: "error", text: "Erro ao carregar categorias" });
@@ -52,12 +74,18 @@ export default function CategoriesPage() {
     try {
       const result = await createCategory(data);
       if (result.success) {
-        setMessage({ type: "success", text: result.message || "Categoria criada com sucesso!" });
+        setMessage({
+          type: "success",
+          text: result.message || "Categoria criada com sucesso!",
+        });
         setFormData({ name: "", type: "INCOME", color: "", icon: "" });
         setShowForm(false);
         await loadCategories();
       } else {
-        setMessage({ type: "error", text: result.error || "Erro ao criar categoria" });
+        setMessage({
+          type: "error",
+          text: result.error || "Erro ao criar categoria",
+        });
       }
     } catch (error) {
       setMessage({ type: "error", text: "Erro ao criar categoria" });
@@ -91,11 +119,17 @@ export default function CategoriesPage() {
     try {
       const result = await updateCategory(categoryId, data);
       if (result.success) {
-        setMessage({ type: "success", text: result.message || "Categoria atualizada!" });
+        setMessage({
+          type: "success",
+          text: result.message || "Categoria atualizada!",
+        });
         cancelEdit();
         await loadCategories();
       } else {
-        setMessage({ type: "error", text: result.error || "Erro ao atualizar categoria" });
+        setMessage({
+          type: "error",
+          text: result.error || "Erro ao atualizar categoria",
+        });
       }
     } catch (error) {
       setMessage({ type: "error", text: "Erro ao atualizar categoria" });
@@ -110,10 +144,16 @@ export default function CategoriesPage() {
     try {
       const result = await deleteCategory(categoryId);
       if (result.success) {
-        setMessage({ type: "success", text: "Categoria excluída com sucesso!" });
+        setMessage({
+          type: "success",
+          text: "Categoria excluída com sucesso!",
+        });
         await loadCategories();
       } else {
-        setMessage({ type: "error", text: result.error || "Erro ao excluir categoria" });
+        setMessage({
+          type: "error",
+          text: result.error || "Erro ao excluir categoria",
+        });
       }
     } catch (error) {
       setMessage({ type: "error", text: "Erro ao excluir categoria" });
@@ -122,206 +162,384 @@ export default function CategoriesPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Carregando...</div>
+      <div className="flex min-h-screen items-center justify-center">
+        <div
+          className={`${smallCaps} text-gray-500 dark:text-gray-400`}
+        >
+          Carregando…
+        </div>
       </div>
     );
   }
 
+  const sorted = [...categories].sort((a, b) =>
+    a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }),
+  );
+  const incomeCats = sorted.filter((c) => c.type === "INCOME");
+  const expenseCats = sorted.filter((c) => c.type === "EXPENSE");
+
+  const renderCard = (category: Category) => {
+    const isEditing = editingId === category.id;
+    const accent = category.color ?? "#6366f1";
+    return (
+      <article
+        key={category.id}
+        className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
+      >
+        <div
+          className="absolute inset-y-0 left-0 w-1"
+          style={{ background: accent }}
+          aria-hidden
+        />
+        <div className="flex items-start justify-between gap-3 p-5 pl-6">
+          <div className="flex min-w-0 items-start gap-3">
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg"
+              style={{
+                background: `${accent}1a`,
+                color: accent,
+              }}
+              aria-hidden
+            >
+              {category.icon || "•"}
+            </div>
+            <div className="min-w-0">
+              <h3 className="truncate font-medium text-gray-900 dark:text-gray-100">
+                {category.name}
+                {category.systemKey && (
+                  <span
+                    className={`${smallCaps} ml-2 rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300`}
+                  >
+                    Padrão
+                  </span>
+                )}
+              </h3>
+              <p
+                className={`${smallCaps} mt-1 text-gray-400 dark:text-gray-500`}
+              >
+                {category.type === "INCOME" ? "Receita" : "Despesa"}
+              </p>
+            </div>
+          </div>
+          {!isEditing && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => startEdit(category)}
+                className="rounded-lg px-2.5 py-1.5 text-xs text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+              >
+                Editar
+              </button>
+              <button
+                onClick={() => handleDelete(category.id)}
+                className="rounded-lg px-2.5 py-1.5 text-xs text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+              >
+                Excluir
+              </button>
+            </div>
+          )}
+        </div>
+
+        {isEditing && (
+          <div className="border-t border-gray-100 bg-gray-50/60 p-5 dark:border-gray-800 dark:bg-gray-950/40">
+            <div className="grid gap-3 md:grid-cols-[1fr_140px_64px]">
+              <div>
+                <label
+                  className={`${smallCaps} mb-1.5 block text-gray-500 dark:text-gray-400`}
+                >
+                  Nome
+                </label>
+                <input
+                  type="text"
+                  value={editData.name}
+                  onChange={(e) =>
+                    setEditData({ ...editData, name: e.target.value })
+                  }
+                  placeholder="Nome"
+                  className={inputCls}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label
+                  className={`${smallCaps} mb-1.5 block text-gray-500 dark:text-gray-400`}
+                >
+                  Ícone
+                </label>
+                <input
+                  type="text"
+                  value={editData.icon}
+                  onChange={(e) =>
+                    setEditData({ ...editData, icon: e.target.value })
+                  }
+                  placeholder="💰"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label
+                  className={`${smallCaps} mb-1.5 block text-gray-500 dark:text-gray-400`}
+                >
+                  Cor
+                </label>
+                <input
+                  type="color"
+                  value={editData.color || "#6366f1"}
+                  onChange={(e) =>
+                    setEditData({ ...editData, color: e.target.value })
+                  }
+                  className="h-[42px] w-full cursor-pointer rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950"
+                />
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => submitEdit(category.id)}
+                disabled={isSubmitting}
+                className={primaryBtn}
+              >
+                Salvar
+              </button>
+              <button
+                onClick={cancelEdit}
+                disabled={isSubmitting}
+                className={ghostBtn}
+              >
+                Cancelar
+              </button>
+              <p className="ml-1 text-xs text-gray-500 dark:text-gray-400">
+                Tipo não pode ser alterado.
+              </p>
+            </div>
+          </div>
+        )}
+      </article>
+    );
+  };
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold dark:text-gray-100">Categorias</h1>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded dark:bg-blue-600 dark:hover:bg-blue-500"
-        >
-          {showForm ? "Cancelar" : "Nova Categoria"}
+    <div className="mx-auto max-w-7xl space-y-8">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className={`${smallCaps} text-gray-400`}>03 · Taxonomia</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
+            Categorias
+          </h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Organize receitas e despesas com ícones e cores.
+          </p>
+        </div>
+        <button onClick={() => setShowForm((p) => !p)} className={primaryBtn}>
+          {showForm ? "Cancelar" : "+ Nova categoria"}
         </button>
-      </div>
+      </header>
 
       {message && (
-        <div className={`mb-4 p-4 rounded ${message.type === "success" ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300" : "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"}`}>
-          {message.text}
+        <div
+          role="alert"
+          className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
+            message.type === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300"
+              : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300"
+          }`}
+        >
+          <span
+            className={`mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full ${
+              message.type === "success" ? "bg-emerald-500" : "bg-rose-500"
+            }`}
+            aria-hidden
+          />
+          <span>{message.text}</span>
         </div>
       )}
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md mb-8 dark:bg-gray-900 dark:shadow-gray-900/50">
-          <div className="mb-4">
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-              Nome da Categoria
-            </label>
-            <input
-              type="text"
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
-              required
-            />
+        <form
+          onSubmit={handleSubmit}
+          className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900"
+        >
+          <div className="mb-5">
+            <p className={`${smallCaps} text-gray-400`}>Nova categoria</p>
+            <h2 className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Detalhes
+            </h2>
           </div>
 
-          <div className="mb-4">
-            <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-              Tipo
-            </label>
-            <select
-              id="type"
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
-            >
-              <option value="INCOME">Receita</option>
-              <option value="EXPENSE">Despesa</option>
-            </select>
-          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label
+                htmlFor="name"
+                className={`${smallCaps} mb-2 block text-gray-500 dark:text-gray-400`}
+              >
+                Nome
+              </label>
+              <input
+                type="text"
+                id="name"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                className={inputCls}
+                required
+              />
+            </div>
 
-          <div className="mb-4">
-            <label htmlFor="color" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-              Cor (opcional)
-            </label>
-            <input
-              type="color"
-              id="color"
-              value={formData.color}
-              onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
-            />
-          </div>
+            <div>
+              <label
+                className={`${smallCaps} mb-2 block text-gray-500 dark:text-gray-400`}
+              >
+                Tipo
+              </label>
+              <div
+                role="tablist"
+                className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-800 dark:bg-gray-950"
+              >
+                {(
+                  [
+                    { v: "INCOME", label: "Receita", color: "#10b981" },
+                    { v: "EXPENSE", label: "Despesa", color: "#ef4444" },
+                  ] as const
+                ).map((opt) => {
+                  const active = formData.type === opt.v;
+                  return (
+                    <button
+                      key={opt.v}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() =>
+                        setFormData({ ...formData, type: opt.v as any })
+                      }
+                      className={`px-4 py-2 text-sm font-medium transition ${
+                        active
+                          ? "rounded-lg bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white"
+                          : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="inline-block h-2 w-2 rounded-full"
+                          style={{ background: opt.color }}
+                          aria-hidden
+                        />
+                        {opt.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-          <div className="mb-4">
-            <label htmlFor="icon" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-              Ícone (opcional)
-            </label>
-            <input
-              type="text"
-              id="icon"
-              value={formData.icon}
-              onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-              placeholder="Ex: 💰, 🏠, 🚗"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
-            />
+            <div>
+              <label
+                htmlFor="icon"
+                className={`${smallCaps} mb-2 block text-gray-500 dark:text-gray-400`}
+              >
+                Ícone <span className="text-gray-400">(emoji)</span>
+              </label>
+              <input
+                type="text"
+                id="icon"
+                value={formData.icon}
+                onChange={(e) =>
+                  setFormData({ ...formData, icon: e.target.value })
+                }
+                placeholder="Ex: 💰, 🏠, 🚗"
+                className={inputCls}
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="color"
+                className={`${smallCaps} mb-2 block text-gray-500 dark:text-gray-400`}
+              >
+                Cor
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  id="color"
+                  value={formData.color || "#6366f1"}
+                  onChange={(e) =>
+                    setFormData({ ...formData, color: e.target.value })
+                  }
+                  className="h-[42px] w-14 cursor-pointer rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950"
+                />
+                <input
+                  type="text"
+                  value={formData.color}
+                  onChange={(e) =>
+                    setFormData({ ...formData, color: e.target.value })
+                  }
+                  placeholder="#6366f1"
+                  className={inputCls}
+                />
+              </div>
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-500"
+            className={primaryBtn + " mt-5 w-full"}
           >
-            {isSubmitting ? "Criando..." : "Criar Categoria"}
+            {isSubmitting ? "Criando…" : "Criar categoria"}
           </button>
         </form>
       )}
 
-      <div className="bg-white rounded-lg shadow-md dark:bg-gray-900 dark:shadow-gray-900/50">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
-          <h2 className="text-xl font-semibold dark:text-gray-100">Suas Categorias</h2>
+      <section className="space-y-8">
+        <div>
+          <div className="mb-4 flex items-center gap-3">
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ background: "#10b981" }}
+              aria-hidden
+            />
+            <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
+              Receitas
+            </p>
+            <span className="text-xs tabular-nums text-gray-400">
+              {incomeCats.length}
+            </span>
+          </div>
+          {incomeCats.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-gray-200 px-6 py-8 text-center text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
+              Nenhuma categoria de receita.
+            </p>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {incomeCats.map(renderCard)}
+            </div>
+          )}
         </div>
 
-        {categories.length === 0 ? (
-          <div className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-            Nenhuma categoria encontrada. Crie sua primeira categoria acima.
+        <div>
+          <div className="mb-4 flex items-center gap-3">
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ background: "#ef4444" }}
+              aria-hidden
+            />
+            <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
+              Despesas
+            </p>
+            <span className="text-xs tabular-nums text-gray-400">
+              {expenseCats.length}
+            </span>
           </div>
-        ) : (
-          <div className="divide-y divide-gray-200 dark:divide-gray-800">
-            {categories.map((category) => {
-              const isEditing = editingId === category.id;
-              return (
-                <div key={category.id} className="px-6 py-4">
-                  <div className="flex justify-between items-center gap-4 flex-wrap">
-                    <div className="flex items-center space-x-3 min-w-0">
-                      {category.icon && <span className="text-xl">{category.icon}</span>}
-                      <div>
-                        <h3 className="font-medium dark:text-gray-100">
-                          {category.name}
-                          {category.systemKey && (
-                            <span className="ml-2 text-xs font-normal text-indigo-600 dark:text-indigo-400">
-                              (padrão)
-                            </span>
-                          )}
-                        </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {category.type === "INCOME" ? "Receita" : "Despesa"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {category.color && (
-                        <div
-                          className="w-4 h-4 rounded-full border dark:border-gray-700"
-                          style={{ backgroundColor: category.color }}
-                        />
-                      )}
-                      {!isEditing && (
-                        <>
-                          <button
-                            onClick={() => startEdit(category)}
-                            className="text-indigo-600 hover:text-indigo-800 text-sm px-2 py-1 rounded dark:text-indigo-400 dark:hover:text-indigo-300"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => handleDelete(category.id)}
-                            className="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded dark:text-red-400 dark:hover:text-red-300"
-                          >
-                            Excluir
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {isEditing && (
-                    <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        value={editData.name}
-                        onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                        placeholder="Nome"
-                        className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
-                        autoFocus
-                      />
-                      <input
-                        type="text"
-                        value={editData.icon}
-                        onChange={(e) => setEditData({ ...editData, icon: e.target.value })}
-                        placeholder="Ícone (ex: 💰)"
-                        className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
-                      />
-                      <input
-                        type="color"
-                        value={editData.color || "#000000"}
-                        onChange={(e) => setEditData({ ...editData, color: e.target.value })}
-                        className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
-                      />
-                      <div className="md:col-span-3 flex gap-2">
-                        <button
-                          onClick={() => submitEdit(category.id)}
-                          disabled={isSubmitting}
-                          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-500"
-                        >
-                          Salvar
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          disabled={isSubmitting}
-                          className="text-gray-600 hover:text-gray-800 px-3 py-2 rounded dark:text-gray-300 dark:hover:text-gray-100"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                      <p className="md:col-span-3 text-xs text-gray-500 dark:text-gray-400">
-                        Tipo (Receita/Despesa) não pode ser alterado para manter consistência com transações existentes.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+          {expenseCats.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-gray-200 px-6 py-8 text-center text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
+              Nenhuma categoria de despesa.
+            </p>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {expenseCats.map(renderCard)}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

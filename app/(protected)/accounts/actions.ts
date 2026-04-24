@@ -15,7 +15,7 @@ function parseDecimalInput(raw: unknown): number {
 }
 
 const accountSchema = z.object({
-  name: z.string().min(2, "O nome da conta deve ter ao menos 2 caracteres"),
+  name: z.string().min(1, "O nome da conta é obrigatório").max(100, "Nome muito longo"),
   type: z.enum([
     "CHECKING",
     "SAVINGS",
@@ -24,6 +24,7 @@ const accountSchema = z.object({
     "INVESTMENT",
     "TICKET_MEAL",
     "TICKET_FUEL",
+    "TICKET_AWARD",
     "OTHER",
   ]),
   balance: z.number().min(0, "O saldo inicial não pode ser negativo").max(9_999_999_999_999.99, "Valor acima do limite suportado").default(0),
@@ -31,6 +32,19 @@ const accountSchema = z.object({
 
 const balanceUpdateSchema = z.object({
   balance: z.number().min(0, "O saldo não pode ser negativo").max(9_999_999_999_999.99, "Valor acima do limite suportado"),
+});
+
+const nameUpdateSchema = z.object({
+  name: z.string().min(1, "O nome da conta é obrigatório").max(100, "Nome muito longo"),
+});
+
+const transferSchema = z.object({
+  fromAccountId: z.string().min(1, "Selecione a conta de origem"),
+  toAccountId: z.string().min(1, "Selecione a conta de destino"),
+  amount: z
+    .number()
+    .positive("O valor deve ser positivo")
+    .max(9_999_999_999_999.99, "Valor acima do limite suportado"),
 });
 
 export async function createAccount(formData: FormData) {
@@ -124,6 +138,114 @@ export async function updateAccountBalance(id: string, rawBalance: string) {
     }
     console.error("Erro ao atualizar saldo:", error);
     return { success: false, error: messages.error.update };
+  }
+}
+
+export async function updateAccountName(id: string, rawName: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
+
+    if (!userId) {
+      return { success: false, error: "Usuário não autenticado" };
+    }
+
+    const existing = await prisma.account.findFirst({ where: { id, userId } });
+    if (!existing) {
+      return { success: false, error: "Conta não encontrada" };
+    }
+
+    const data = nameUpdateSchema.parse({
+      name: typeof rawName === "string" ? rawName.trim() : rawName,
+    });
+
+    if (data.name !== existing.name) {
+      const conflict = await prisma.account.findFirst({
+        where: { userId, name: data.name, NOT: { id } },
+      });
+      if (conflict) {
+        return { success: false, error: "Já existe outra conta com este nome" };
+      }
+    }
+
+    await prisma.account.update({
+      where: { id },
+      data: { name: data.name },
+    });
+
+    revalidatePath("/accounts");
+    return { success: true, message: "Nome atualizado com sucesso!" };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues.map((item) => item.message).join(", ") };
+    }
+    console.error("Erro ao atualizar nome:", error);
+    return { success: false, error: messages.error.update };
+  }
+}
+
+export async function transferBalance(formData: FormData) {
+  try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
+
+    if (!userId) {
+      return { success: false, error: "Usuário não autenticado" };
+    }
+
+    const rawFrom = formData.get("fromAccountId");
+    const rawTo = formData.get("toAccountId");
+    const rawAmount = formData.get("amount");
+
+    const data = transferSchema.parse({
+      fromAccountId: typeof rawFrom === "string" ? rawFrom : "",
+      toAccountId: typeof rawTo === "string" ? rawTo : "",
+      amount: parseDecimalInput(rawAmount),
+    });
+
+    if (data.fromAccountId === data.toAccountId) {
+      return { success: false, error: "As contas de origem e destino devem ser diferentes" };
+    }
+
+    const [fromAccount, toAccount] = await Promise.all([
+      prisma.account.findFirst({ where: { id: data.fromAccountId, userId } }),
+      prisma.account.findFirst({ where: { id: data.toAccountId, userId } }),
+    ]);
+
+    if (!fromAccount || !toAccount) {
+      return { success: false, error: "Conta não encontrada" };
+    }
+
+    const fromBalance = Number(fromAccount.balance);
+    if (data.amount > fromBalance) {
+      return {
+        success: false,
+        error: `Saldo insuficiente na conta de origem. Saldo atual: R$ ${fromBalance.toFixed(2)}`,
+      };
+    }
+
+    await prisma.$transaction([
+      prisma.account.update({
+        where: { id: data.fromAccountId },
+        data: { balance: { decrement: data.amount } },
+      }),
+      prisma.account.update({
+        where: { id: data.toAccountId },
+        data: { balance: { increment: data.amount } },
+      }),
+    ]);
+
+    revalidatePath("/accounts");
+    return {
+      success: true,
+      message: `Transferência de R$ ${data.amount.toFixed(2)} de ${fromAccount.name} para ${toAccount.name} realizada!`,
+    };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues.map((item) => item.message).join(", ") };
+    }
+    console.error("Erro ao transferir saldo:", error);
+    return { success: false, error: "Erro ao transferir saldo" };
   }
 }
 

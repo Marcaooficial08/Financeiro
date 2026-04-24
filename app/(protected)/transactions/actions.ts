@@ -73,7 +73,9 @@ export async function createTransaction(formData: FormData) {
             ? "Ticket refeição"
             : requiredAccountType === "TICKET_FUEL"
               ? "Ticket combustível"
-              : requiredAccountType;
+              : requiredAccountType === "TICKET_AWARD"
+                ? "Ticket premiação"
+                : requiredAccountType;
         return {
           success: false,
           error: `A categoria ${category.name} só pode ser usada em contas do tipo ${label}.`,
@@ -83,7 +85,7 @@ export async function createTransaction(formData: FormData) {
       // Categoria não-ticket não pode ser lançada em conta de ticket.
       return {
         success: false,
-        error: "Esta categoria não pode ser usada em contas Ticket (refeição ou combustível).",
+        error: "Esta categoria não pode ser usada em contas Ticket (refeição, combustível ou premiação).",
       };
     }
 
@@ -163,6 +165,155 @@ export async function getTransactions() {
   } catch (error) {
     console.error("Erro ao buscar transações:", error);
     return { success: false, error: "Erro ao buscar transações" };
+  }
+}
+
+export async function updateTransaction(id: string, formData: FormData) {
+  try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
+
+    if (!userId) {
+      return { success: false, error: "Usuário não autenticado" };
+    }
+
+    const rawAmount = formData.get("amount");
+    const rawType = formData.get("type");
+    const rawDescription = formData.get("description");
+    const rawDate = formData.get("date");
+    const rawAccountId = formData.get("accountId");
+    const rawCategoryId = formData.get("categoryId");
+
+    const data = transactionSchema.parse({
+      amount: parseDecimalInput(rawAmount),
+      type: typeof rawType === "string" ? (rawType as "INCOME" | "EXPENSE") : "EXPENSE",
+      description: typeof rawDescription === "string" ? rawDescription.trim() : "",
+      date: typeof rawDate === "string" ? new Date(rawDate) : new Date(),
+      accountId: typeof rawAccountId === "string" ? rawAccountId : "",
+      categoryId: typeof rawCategoryId === "string" ? rawCategoryId : "",
+    });
+
+    const existing = await prisma.transaction.findFirst({
+      where: { id, userId },
+      include: { account: true, category: true },
+    });
+    if (!existing) {
+      return { success: false, error: "Transação não encontrada" };
+    }
+
+    const newAccount = await prisma.account.findFirst({
+      where: { id: data.accountId, userId },
+    });
+    if (!newAccount) {
+      return { success: false, error: "Conta não encontrada" };
+    }
+
+    const newCategory = await prisma.category.findFirst({
+      where: { id: data.categoryId, userId, type: data.type },
+    });
+    if (!newCategory) {
+      return {
+        success: false,
+        error: "Categoria não encontrada ou incompatível com o tipo da transação",
+      };
+    }
+
+    const requiredAccountType = getRequiredAccountType(newCategory.systemKey);
+    if (requiredAccountType) {
+      if (newAccount.type !== requiredAccountType) {
+        const label =
+          requiredAccountType === "TICKET_MEAL"
+            ? "Ticket refeição"
+            : requiredAccountType === "TICKET_FUEL"
+              ? "Ticket combustível"
+              : requiredAccountType === "TICKET_AWARD"
+                ? "Ticket premiação"
+                : requiredAccountType;
+        return {
+          success: false,
+          error: `A categoria ${newCategory.name} só pode ser usada em contas do tipo ${label}.`,
+        };
+      }
+    } else if (isTicketAccountType(newAccount.type)) {
+      return {
+        success: false,
+        error:
+          "Esta categoria não pode ser usada em contas Ticket (refeição, combustível ou premiação).",
+      };
+    }
+
+    const oldEffect = getTransactionEffectForCategory(
+      existing.type,
+      Number(existing.amount),
+      existing.category?.systemKey,
+    );
+    const newEffect = getTransactionEffectForCategory(
+      data.type,
+      data.amount,
+      newCategory.systemKey,
+    );
+
+    const sameAccount = existing.accountId === data.accountId;
+
+    if (newEffect < 0) {
+      const available = sameAccount
+        ? Number(newAccount.balance) - oldEffect
+        : Number(newAccount.balance);
+      if (Math.abs(newEffect) > available) {
+        return {
+          success: false,
+          error: `Saldo insuficiente na conta destino. Saldo disponível: R$ ${available.toFixed(2)}`,
+        };
+      }
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      if (sameAccount) {
+        const delta = newEffect - oldEffect;
+        if (delta !== 0) {
+          await tx.account.update({
+            where: { id: data.accountId, userId },
+            data: { balance: { increment: delta } },
+          });
+        }
+      } else {
+        await tx.account.update({
+          where: { id: existing.accountId, userId },
+          data: { balance: { decrement: oldEffect } },
+        });
+        await tx.account.update({
+          where: { id: data.accountId, userId },
+          data: { balance: { increment: newEffect } },
+        });
+      }
+
+      const updated = await tx.transaction.update({
+        where: { id },
+        data: {
+          amount: data.amount,
+          type: data.type,
+          description: data.description,
+          date: data.date,
+          accountId: data.accountId,
+          categoryId: data.categoryId,
+        },
+        include: { account: true, category: true },
+      });
+
+      return updated;
+    });
+
+    revalidatePath("/transactions");
+    return { success: true, data: result, message: "Transação atualizada com sucesso!" };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return {
+        success: false,
+        error: error.issues.map((item) => item.message).join(", "),
+      };
+    }
+    console.error("Error updating transaction:", error);
+    return { success: false, error: messages.error.update };
   }
 }
 

@@ -26,6 +26,7 @@ enum AccountType {
   INVESTMENT
   TICKET_MEAL
   TICKET_FUEL
+  TICKET_AWARD
   OTHER
 }
 

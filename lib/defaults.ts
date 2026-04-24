@@ -50,6 +50,20 @@ export const DEFAULT_CATEGORIES = [
     icon: "💰",
     color: "#10b981",
   },
+  {
+    systemKey: "TICKET_AWARD",
+    name: "Ticket premiação",
+    type: "EXPENSE" as const,
+    icon: "🏆",
+    color: "#8b5cf6",
+  },
+  {
+    systemKey: "TICKET_AWARD_INCOME",
+    name: "Ticket premiação",
+    type: "INCOME" as const,
+    icon: "🏆",
+    color: "#8b5cf6",
+  },
 ];
 
 /**
@@ -65,11 +79,14 @@ export const CATEGORY_ACCOUNT_TYPE: Record<string, AccountType> = {
   FUEL_INCOME: "TICKET_FUEL",
   UBER_EXPENSE: "TICKET_FUEL",
   UBER_INCOME: "TICKET_FUEL",
+  TICKET_AWARD: "TICKET_AWARD",
+  TICKET_AWARD_INCOME: "TICKET_AWARD",
 };
 
 const TICKET_ACCOUNT_TYPES: ReadonlySet<AccountType> = new Set<AccountType>([
   "TICKET_MEAL",
   "TICKET_FUEL",
+  "TICKET_AWARD",
 ]);
 
 export function isTicketAccountType(type: AccountType): boolean {
