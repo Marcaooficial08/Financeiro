@@ -18,6 +18,7 @@ import {
 import type {
   BalancePoint,
   CategorySlice,
+  CompositionSlice,
   ExpenseSlice,
   MonthlyBucket,
 } from "@/lib/dashboard";
@@ -149,6 +150,101 @@ export function ExpensesPieChart({ data }: { data: ExpenseSlice[] }) {
   );
 }
 
+/**
+ * Pizza com receitas + despesas misturadas. Cor verde para receitas e
+ * vermelho/laranja para despesas — definidas em CompositionSlice.color.
+ * Tooltip mostra: categoria · tipo · valor · percentual.
+ */
+export function CompositionPieChart({
+  data,
+  centerLabel,
+  centerValue,
+  emptyLabel,
+}: {
+  data: CompositionSlice[];
+  centerLabel: string;
+  centerValue: string;
+  emptyLabel?: string;
+}) {
+  if (!data.length) {
+    return (
+      <div className="relative flex h-64 items-center justify-center">
+        <div className="text-center">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-gray-400">
+            {centerLabel}
+          </p>
+          <p
+            className="mt-1 text-2xl font-semibold tabular-nums text-gray-700 dark:text-gray-200"
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {centerValue}
+          </p>
+          <p className="mt-3 text-[11px] text-gray-400">
+            {emptyLabel ?? "Sem movimentações no período"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-64 w-full">
+      <ResponsiveContainer width="100%" height={256}>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="total"
+            nameKey="label"
+            cx="50%"
+            cy="50%"
+            outerRadius={96}
+            innerRadius={62}
+            paddingAngle={1.5}
+            stroke="white"
+            strokeWidth={1.5}
+            label={({ percent }) =>
+              percent && percent > 0.07
+                ? `${(percent * 100).toFixed(0)}%`
+                : ""
+            }
+            labelLine={false}
+          >
+            {data.map((slice) => (
+              <Cell key={slice.id} fill={slice.color} />
+            ))}
+          </Pie>
+          <Tooltip
+            contentStyle={tooltipStyle}
+            formatter={(value, _name, item) => {
+              const payload = (item as { payload?: CompositionSlice })?.payload;
+              const typeLabel = payload?.txType === "INCOME" ? "Receita" : "Despesa";
+              const pct =
+                payload?.share != null
+                  ? `${payload.share.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+                  : "";
+              return [
+                `${formatBRL(value as number)} · ${pct}`,
+                `${payload?.name ?? ""} · ${typeLabel}`,
+              ];
+            }}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-gray-400">
+          {centerLabel}
+        </p>
+        <p
+          className="mt-1 text-xl font-semibold tracking-tight text-gray-900 dark:text-white"
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {centerValue}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function MonthlyBarChart({ data }: { data: MonthlyBucket[] }) {
   if (!data.length) {
     return (
@@ -191,6 +287,61 @@ export function MonthlyBarChart({ data }: { data: MonthlyBucket[] }) {
           fill="#ef4444"
           radius={[6, 6, 0, 0]}
         />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+/**
+ * Variante compacta do bar chart mensal, usada nos cards por grupo.
+ * Permite customizar altura e cores para receita/despesa.
+ */
+export function GroupMonthlyBarChart({
+  data,
+  height = 220,
+  incomeColor = "#10b981",
+  expenseColor = "#ef4444",
+}: {
+  data: MonthlyBucket[];
+  height?: number;
+  incomeColor?: string;
+  expenseColor?: string;
+}) {
+  const hasAny = data.some((d) => d.income > 0 || d.expense > 0);
+  if (!hasAny) {
+    return (
+      <div className="flex h-44 items-center justify-center text-xs uppercase tracking-[0.22em] text-gray-400">
+        Sem movimentações no ano
+      </div>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+        <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis
+          tick={{ fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+          tickFormatter={(value) =>
+            value.toLocaleString("pt-BR", {
+              notation: "compact",
+              maximumFractionDigits: 1,
+            })
+          }
+          width={48}
+        />
+        <Tooltip
+          formatter={(value, name) => [formatBRL(value as number), name]}
+          labelFormatter={(label) => `Mês: ${label}`}
+          contentStyle={tooltipStyle}
+          cursor={{ fill: "rgba(99,102,241,0.06)" }}
+        />
+        <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+        <Bar dataKey="income" name="Receitas" fill={incomeColor} radius={[5, 5, 0, 0]} />
+        <Bar dataKey="expense" name="Despesas" fill={expenseColor} radius={[5, 5, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

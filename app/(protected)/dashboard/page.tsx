@@ -3,14 +3,13 @@ import { authOptions } from "@/lib/auth";
 import {
   getDashboardData,
   type CategorySlice,
-  type TicketAnalysis,
+  type GroupAnalysis,
 } from "@/lib/dashboard";
+import { formatCalendarDateBR } from "@/lib/date";
 import {
   BalanceLineChart,
-  CategoryPieChart,
-  ExpensesPieChart,
-  MonthlyBarChart,
-  TicketDonut,
+  CompositionPieChart,
+  GroupMonthlyBarChart,
 } from "./DashboardCharts";
 import { DashboardFilters } from "./DashboardFilters";
 
@@ -98,7 +97,7 @@ function CategoryRankedBars({
 }) {
   if (!data.length) {
     return (
-      <p className="py-8 text-center text-xs uppercase tracking-[0.22em] text-gray-400">
+      <p className="py-6 text-center text-xs uppercase tracking-[0.22em] text-gray-400">
         {emptyLabel}
       </p>
     );
@@ -153,121 +152,105 @@ function CategoryRankedBars({
   );
 }
 
-function TicketDossier({
+function GroupCard({
   index,
-  ticket,
+  group,
   periodLabel,
+  yearLabel,
 }: {
   index: number;
-  ticket: TicketAnalysis;
+  group: GroupAnalysis;
   periodLabel: string;
+  yearLabel: string;
 }) {
-  const netPositive = ticket.net >= 0;
-  const dotPattern = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><circle cx='2' cy='2' r='1' fill='${encodeURIComponent(
-    ticket.accent,
-  )}' fill-opacity='0.35'/></svg>")`;
+  const netPositive = group.net >= 0;
+  const totalAbs = group.income + group.expense;
 
   return (
     <article className="relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      {/* accent rail */}
       <div
         className="absolute inset-y-0 left-0 w-[3px]"
-        style={{ background: ticket.accent }}
+        style={{ background: group.accent }}
         aria-hidden
       />
 
-      {/* hero band */}
       <header
-        className="relative overflow-hidden border-b border-gray-100 px-7 py-7 dark:border-gray-800"
+        className="relative overflow-hidden border-b border-gray-100 px-7 py-6 dark:border-gray-800"
         style={{
-          background: `linear-gradient(135deg, ${ticket.accent}14 0%, transparent 60%)`,
+          background: `linear-gradient(135deg, ${group.accent}14 0%, transparent 60%)`,
         }}
       >
-        <div
-          className="absolute inset-0 opacity-60"
-          style={{ backgroundImage: dotPattern }}
-          aria-hidden
-        />
-        <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="flex items-center gap-3">
               <span
                 className={`${smallCaps} tabular-nums text-gray-500 dark:text-gray-400`}
                 style={{ fontVariantNumeric: "tabular-nums" }}
               >
-                Dossiê · {String(index).padStart(2, "0")}
+                Grupo · {String(index).padStart(2, "0")}
               </span>
               <span
-                className="h-px w-10"
-                style={{ background: ticket.accent }}
+                className="h-px w-8"
+                style={{ background: group.accent }}
                 aria-hidden
               />
               <span
                 className={`${smallCaps}`}
-                style={{ color: ticket.accent }}
+                style={{ color: group.accent }}
               >
-                {ticket.txCount} mov.
+                {group.txCount} mov.
               </span>
             </div>
             <h3 className="mt-2 text-xl font-semibold text-gray-900 dark:text-white">
-              {ticket.label}
+              {group.label}
             </h3>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Saldo atual · acompanhamento de {periodLabel}
+              Composição em {periodLabel} · tendência mensal de {yearLabel}
             </p>
           </div>
           <div className="text-left md:text-right">
-            <p
-              className={`${smallCaps} text-gray-500 dark:text-gray-400`}
-            >
-              Saldo disponível
+            <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
+              Saldo atual
             </p>
             <p
-              className={`mt-1 text-4xl text-gray-900 dark:text-white ${numeral}`}
+              className={`mt-1 text-3xl text-gray-900 dark:text-white ${numeral}`}
               style={{ fontVariantNumeric: "tabular-nums" }}
             >
-              {formatBRL(ticket.currentBalance)}
+              {formatBRL(group.currentBalance)}
             </p>
           </div>
         </div>
       </header>
 
-      {/* stats ribbon */}
       <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100 dark:divide-gray-800 dark:border-gray-800">
         <div className="px-5 py-4">
-          <p
-            className={`${smallCaps} text-gray-500 dark:text-gray-400`}
-          >
+          <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
             Receitas
           </p>
           <p
-            className={`mt-1 text-lg text-emerald-600 dark:text-emerald-400 ${numeral}`}
+            className={`mt-1 text-base text-emerald-600 dark:text-emerald-400 ${numeral}`}
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {formatBRL(ticket.income)}
+            {formatBRL(group.income)}
           </p>
         </div>
         <div className="px-5 py-4">
-          <p
-            className={`${smallCaps} text-gray-500 dark:text-gray-400`}
-          >
+          <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
             Despesas
           </p>
           <p
-            className={`mt-1 text-lg text-rose-600 dark:text-rose-400 ${numeral}`}
+            className={`mt-1 text-base text-rose-600 dark:text-rose-400 ${numeral}`}
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {formatBRL(ticket.expense)}
+            {formatBRL(group.expense)}
           </p>
         </div>
         <div className="px-5 py-4">
-          <p
-            className={`${smallCaps} text-gray-500 dark:text-gray-400`}
-          >
-            Saldo líquido
+          <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
+            Líquido
           </p>
           <p
-            className={`mt-1 flex items-center gap-1 text-lg ${numeral} ${
+            className={`mt-1 flex items-center gap-1 text-base ${numeral} ${
               netPositive
                 ? "text-emerald-600 dark:text-emerald-400"
                 : "text-rose-600 dark:text-rose-400"
@@ -275,79 +258,87 @@ function TicketDossier({
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
             <span aria-hidden>{netPositive ? "↗" : "↘"}</span>
-            {formatBRL(ticket.net)}
+            {formatBRL(group.net)}
           </p>
         </div>
       </div>
 
-      {/* body — donut + ranked bars */}
+      {/* corpo: composition pie + monthly bar */}
       <div className="grid gap-6 p-6 lg:grid-cols-5">
         <div className="lg:col-span-2">
-          <div className="flex items-center justify-between">
+          <div className="mb-2 flex items-baseline justify-between">
             <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
-              Distribuição
+              Composição
             </p>
             <p className="text-[11px] tabular-nums text-gray-400">
-              {ticket.expenseByCategory.length || ticket.incomeByCategory.length}{" "}
-              categoria(s)
+              Receita + Despesa
             </p>
           </div>
-          <div className="mt-2">
-            <TicketDonut
-              data={
-                ticket.expenseByCategory.length
-                  ? ticket.expenseByCategory
-                  : ticket.incomeByCategory
-              }
-              centerLabel={
-                ticket.expenseByCategory.length ? "Total despesas" : "Total receitas"
-              }
-              centerValue={formatBRL(
-                ticket.expenseByCategory.length ? ticket.expense : ticket.income,
-              )}
-              accent={ticket.accent}
-              emptyLabel="Sem movimentações no período"
-            />
+          <CompositionPieChart
+            data={group.composition}
+            centerLabel="Volume total"
+            centerValue={formatBRL(totalAbs)}
+            emptyLabel="Sem movimentações no período"
+          />
+          <div className="mt-2 flex items-center justify-center gap-4 text-[11px] text-gray-500 dark:text-gray-400">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
+              Receitas
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2 w-2 rounded-full bg-rose-500" aria-hidden />
+              Despesas
+            </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:col-span-3 lg:grid-cols-2">
-          <div>
-            <div className="mb-3 flex items-baseline justify-between">
-              <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
-                Despesas por categoria
-              </p>
-              <p
-                className="text-[11px] tabular-nums text-gray-400"
-                style={{ fontVariantNumeric: "tabular-nums" }}
-              >
-                {formatBRL(ticket.expense)}
-              </p>
-            </div>
-            <CategoryRankedBars
-              data={ticket.expenseByCategory}
-              accent={ticket.accent}
-              emptyLabel="Sem despesas"
-            />
+        <div className="lg:col-span-3">
+          <div className="mb-2 flex items-baseline justify-between">
+            <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
+              Receitas × Despesas por mês
+            </p>
+            <p className="text-[11px] tabular-nums text-gray-400">{yearLabel}</p>
           </div>
-          <div>
-            <div className="mb-3 flex items-baseline justify-between">
-              <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
-                Receitas por categoria
-              </p>
-              <p
-                className="text-[11px] tabular-nums text-gray-400"
-                style={{ fontVariantNumeric: "tabular-nums" }}
-              >
-                {formatBRL(ticket.income)}
-              </p>
-            </div>
-            <CategoryRankedBars
-              data={ticket.incomeByCategory}
-              accent={ticket.accent}
-              emptyLabel="Sem receitas"
-            />
+          <GroupMonthlyBarChart data={group.monthly} height={232} />
+        </div>
+      </div>
+
+      <div className="grid gap-6 border-t border-gray-100 p-6 dark:border-gray-800 lg:grid-cols-2">
+        <div>
+          <div className="mb-3 flex items-baseline justify-between">
+            <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
+              Receitas por categoria
+            </p>
+            <p
+              className="text-[11px] tabular-nums text-gray-400"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              {formatBRL(group.income)}
+            </p>
           </div>
+          <CategoryRankedBars
+            data={group.incomeByCategory}
+            accent="#10b981"
+            emptyLabel="Sem receitas"
+          />
+        </div>
+        <div>
+          <div className="mb-3 flex items-baseline justify-between">
+            <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
+              Despesas por categoria
+            </p>
+            <p
+              className="text-[11px] tabular-nums text-gray-400"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              {formatBRL(group.expense)}
+            </p>
+          </div>
+          <CategoryRankedBars
+            data={group.expenseByCategory}
+            accent="#ef4444"
+            emptyLabel="Sem despesas"
+          />
         </div>
       </div>
     </article>
@@ -393,7 +384,6 @@ export default async function DashboardPage({
   const {
     cards,
     balanceSeries,
-    expenseByCategory,
     recentTransactions,
     period,
     annual,
@@ -409,6 +399,7 @@ export default async function DashboardPage({
   const annualScopeLabel = annual.month
     ? `${MONTH_NAMES[annual.month - 1]} de ${annual.year}`
     : `${annual.year} · ano inteiro`;
+  const yearLabel = `${annual.year}`;
   const annualNetPositive = annual.net >= 0;
 
   return (
@@ -427,24 +418,20 @@ export default async function DashboardPage({
         <div className="relative mx-auto max-w-7xl px-6 py-10 lg:px-8">
           <div className="flex flex-wrap items-end justify-between gap-6">
             <div>
-              <p
-                className={`${smallCaps} text-gray-500 dark:text-gray-400`}
-              >
+              <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
                 Painel financeiro · {monthLabel}
               </p>
               <h1 className="mt-2 text-4xl font-semibold tracking-tight text-gray-900 dark:text-white">
                 {userName ? `Olá, ${userName}.` : "Dashboard"}
               </h1>
               <p className="mt-2 max-w-xl text-sm text-gray-500 dark:text-gray-400">
-                Consolidado do mês corrente, análise anual e dossiês
-                independentes para cada vale-benefício.
+                Consolidado do mês corrente, análise anual e composição
+                independente para cada grupo de contas.
               </p>
             </div>
             <div className="flex items-end gap-6">
               <div className="text-right">
-                <p
-                  className={`${smallCaps} text-gray-500 dark:text-gray-400`}
-                >
+                <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
                   Saldo consolidado
                 </p>
                 <p
@@ -504,39 +491,23 @@ export default async function DashboardPage({
           </div>
         </section>
 
-        {/* =================== GRÁFICOS DO MÊS =================== */}
-        <section className="grid gap-6 lg:grid-cols-3">
-          <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:col-span-2">
-            <div className="mb-4 flex items-baseline justify-between">
-              <div>
-                <p className={`${smallCaps} text-gray-400`}>
-                  Evolução do saldo
-                </p>
-                <h2 className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                  Últimos 6 meses por bucket
-                </h2>
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Regular · Refeição · Combustível · Premiação
-              </p>
-            </div>
-            <BalanceLineChart data={balanceSeries} />
-          </div>
-
-          <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-            <div className="mb-4">
-              <p className={`${smallCaps} text-gray-400`}>
-                Despesas do mês
-              </p>
+        {/* =================== EVOLUÇÃO DE SALDO =================== */}
+        <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="mb-4 flex items-baseline justify-between">
+            <div>
+              <p className={`${smallCaps} text-gray-400`}>Evolução do saldo</p>
               <h2 className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                Por categoria
+                Últimos 6 meses por bucket
               </h2>
             </div>
-            <ExpensesPieChart data={expenseByCategory} />
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Regular · Refeição · Combustível · Premiação
+            </p>
           </div>
+          <BalanceLineChart data={balanceSeries} />
         </section>
 
-        {/* =================== ANÁLISE ANUAL =================== */}
+        {/* =================== ANÁLISE ANUAL — TOTAIS =================== */}
         <section className="rounded-3xl border border-gray-200 bg-white p-7 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
@@ -545,7 +516,9 @@ export default async function DashboardPage({
                 {annualScopeLabel}
               </h2>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Os filtros abaixo também afetam os dossiês de tickets.
+                Os filtros abaixo afetam composição e categorias dos 4 grupos.
+                Os gráficos mensais por grupo cobrem o ano inteiro de{" "}
+                {annual.year}.
               </p>
             </div>
             <DashboardFilters
@@ -596,97 +569,33 @@ export default async function DashboardPage({
               accent={annual.topExpense?.color ?? "#f43f5e"}
             />
           </div>
-
-          <div className="mt-8">
-            <div className="mb-3 flex items-baseline justify-between">
-              <div>
-                <p className={`${smallCaps} text-gray-400`}>
-                  Receitas × Despesas
-                </p>
-                <h3 className="mt-1 text-base font-semibold text-gray-900 dark:text-white">
-                  Comparativo mensal em {annual.year}
-                </h3>
-              </div>
-            </div>
-            <MonthlyBarChart data={annual.monthly} />
-          </div>
-
-          <div className="mt-8 grid gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-gray-100 p-5 dark:border-gray-800">
-              <div className="mb-4 flex items-baseline justify-between">
-                <div>
-                  <p className={`${smallCaps} text-gray-400`}>
-                    Receitas por categoria
-                  </p>
-                  <h3 className="mt-1 text-base font-semibold text-gray-900 dark:text-white">
-                    Total: {formatBRL(annual.totalIncome)}
-                  </h3>
-                </div>
-              </div>
-              <CategoryPieChart
-                data={annual.incomeByCategory}
-                emptyLabel="Sem receitas no período"
-              />
-              <div className="mt-4">
-                <CategoryRankedBars
-                  data={annual.incomeByCategory}
-                  accent="#10b981"
-                  emptyLabel="Sem receitas no período"
-                  max={8}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-gray-100 p-5 dark:border-gray-800">
-              <div className="mb-4 flex items-baseline justify-between">
-                <div>
-                  <p className={`${smallCaps} text-gray-400`}>
-                    Despesas por categoria
-                  </p>
-                  <h3 className="mt-1 text-base font-semibold text-gray-900 dark:text-white">
-                    Total: {formatBRL(annual.totalExpense)}
-                  </h3>
-                </div>
-              </div>
-              <CategoryPieChart
-                data={annual.expenseByCategory}
-                emptyLabel="Sem despesas no período"
-              />
-              <div className="mt-4">
-                <CategoryRankedBars
-                  data={annual.expenseByCategory}
-                  accent="#ef4444"
-                  emptyLabel="Sem despesas no período"
-                  max={8}
-                />
-              </div>
-            </div>
-          </div>
         </section>
 
-        {/* =================== DOSSIÊS DE TICKETS =================== */}
+        {/* =================== 4 GRUPOS =================== */}
         <section className="space-y-6">
           <div className="flex items-baseline justify-between">
             <div>
               <p className={`${smallCaps} text-gray-400`}>
-                03 · Dossiês de vale-benefício
+                03 · Composição por grupo
               </p>
               <h2 className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-                Refeição · Combustível · Premiação
+                Regulares · Refeição · Combustível · Premiação
               </h2>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Receitas, despesas e distribuição respeitam o filtro acima.
+                Cada grupo exibe pizza com receitas + despesas (cores por tipo)
+                e o comparativo mensal completo do ano selecionado.
               </p>
             </div>
           </div>
 
           <div className="space-y-6">
-            {annual.tickets.map((ticket, i) => (
-              <TicketDossier
-                key={ticket.key}
+            {annual.groups.map((group, i) => (
+              <GroupCard
+                key={group.key}
                 index={i + 1}
-                ticket={ticket}
+                group={group}
                 periodLabel={annualScopeLabel}
+                yearLabel={yearLabel}
               />
             ))}
           </div>
@@ -732,7 +641,7 @@ export default async function DashboardPage({
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           {tx.categoryName ?? "Sem categoria"} · {tx.accountName}{" "}
-                          · {new Date(tx.date).toLocaleDateString("pt-BR")}
+                          · {formatCalendarDateBR(tx.date)}
                         </p>
                       </div>
                     </div>

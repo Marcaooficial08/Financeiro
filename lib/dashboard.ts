@@ -40,17 +40,38 @@ export interface MonthlyBucket {
   net: number;
 }
 
-export type TicketKey = "meal" | "fuel" | "award";
+export type GroupKey = "regular" | "meal" | "fuel" | "award";
 
-export interface TicketAnalysis {
-  key: TicketKey;
+/**
+ * Slice mista (receita + despesa) usada nas pizzas de composição. A cor é
+ * atribuída por tipo: tons verdes para receitas, tons vermelho/laranja
+ * para despesas — facilita leitura visual sem precisar de legenda extra.
+ *
+ * `share` é o percentual já calculado (0–100) — usa nome distinto de
+ * "percent" para não colidir com o campo `percent` que o Recharts injeta
+ * (escala 0–1) na callback do label.
+ */
+export interface CompositionSlice {
+  id: string;
+  name: string; // "Salário"
+  label: string; // "Salário · Receita"
+  txType: TransactionType;
+  color: string;
+  total: number;
+  share: number; // % do total absoluto (income + expense) do grupo, escala 0–100
+}
+
+export interface GroupAnalysis {
+  key: GroupKey;
   label: string;
-  accent: string; // hex — ex: "#f59e0b"
-  currentBalance: number; // snapshot atual (todas as contas do tipo)
-  income: number; // receitas no período filtrado
-  expense: number; // despesas no período filtrado
-  net: number; // income - expense
+  accent: string; // hex do grupo
+  currentBalance: number;
+  income: number;
+  expense: number;
+  net: number;
   txCount: number;
+  composition: CompositionSlice[]; // pizza única com receitas + despesas
+  monthly: MonthlyBucket[]; // 12 meses do ano em escopo
   incomeByCategory: CategorySlice[];
   expenseByCategory: CategorySlice[];
 }
@@ -67,7 +88,7 @@ export interface AnnualSummary {
   topIncome: { name: string; total: number; color: string; percent: number } | null;
   topExpense: { name: string; total: number; color: string; percent: number } | null;
   availableYears: number[];
-  tickets: TicketAnalysis[];
+  groups: GroupAnalysis[]; // 4 grupos: regular, meal, fuel, award
 }
 
 export interface RecentTransaction {
@@ -109,6 +130,30 @@ const PALETTE = [
   "#0ea5e9",
 ];
 
+// Tons verdes para receitas (escuro → claro). Atribuídos por ranking de valor.
+const INCOME_PALETTE = [
+  "#047857",
+  "#059669",
+  "#10b981",
+  "#22c55e",
+  "#34d399",
+  "#84cc16",
+  "#14b8a6",
+  "#6ee7b7",
+];
+
+// Tons vermelho/laranja para despesas (escuro → claro).
+const EXPENSE_PALETTE = [
+  "#991b1b",
+  "#dc2626",
+  "#ef4444",
+  "#e11d48",
+  "#f97316",
+  "#fb923c",
+  "#f59e0b",
+  "#fbbf24",
+];
+
 const MONTH_SHORT = [
   "jan",
   "fev",
@@ -124,11 +169,11 @@ const MONTH_SHORT = [
   "dez",
 ];
 
-function isTicket(type: AccountType): "meal" | "fuel" | "award" | null {
+function groupOfAccount(type: AccountType): GroupKey {
   if (type === "TICKET_MEAL") return "meal";
   if (type === "TICKET_FUEL") return "fuel";
   if (type === "TICKET_AWARD") return "award";
-  return null;
+  return "regular";
 }
 
 export async function getDashboardData(
@@ -225,10 +270,10 @@ export async function getDashboardData(
   let ticketAwardBalance = 0;
   for (const acc of accounts) {
     const balance = Number(acc.balance);
-    const bucket = isTicket(acc.type);
-    if (bucket === "meal") ticketMealBalance += balance;
-    else if (bucket === "fuel") ticketFuelBalance += balance;
-    else if (bucket === "award") ticketAwardBalance += balance;
+    const key = groupOfAccount(acc.type);
+    if (key === "meal") ticketMealBalance += balance;
+    else if (key === "fuel") ticketFuelBalance += balance;
+    else if (key === "award") ticketAwardBalance += balance;
     else regularBalance += balance;
   }
 
@@ -266,11 +311,8 @@ export async function getDashboardData(
       effectPerMonth.get(key) ?? { regular: 0, meal: 0, fuel: 0, award: 0 };
     const effect =
       tx.type === "INCOME" ? Number(tx.amount) : -Number(tx.amount);
-    const bucket = isTicket(tx.account.type);
-    if (bucket === "meal") current.meal += effect;
-    else if (bucket === "fuel") current.fuel += effect;
-    else if (bucket === "award") current.award += effect;
-    else current.regular += effect;
+    const bucket = groupOfAccount(tx.account.type);
+    current[bucket] += effect;
     effectPerMonth.set(key, current);
   }
 
@@ -305,7 +347,7 @@ export async function getDashboardData(
   }
   for (let i = reversed.length - 1; i >= 0; i--) balanceSeries.push(reversed[i]);
 
-  // Despesas por categoria (mês corrente) — pie antigo
+  // Despesas por categoria (mês corrente) — pie antigo, mantido para compat
   const expenseMap = new Map<
     string,
     { id: string; name: string; color: string; total: number }
@@ -338,33 +380,15 @@ export async function getDashboardData(
     }));
 
   // ============================================================
-  // ANÁLISE ANUAL (nova)
+  // ANÁLISE ANUAL
   // ============================================================
 
-  // Série mensal do ano inteiro — sempre 12 meses para o bar chart
-  const monthlyAgg: { income: number; expense: number }[] = Array.from(
-    { length: 12 },
-    () => ({ income: 0, expense: 0 }),
-  );
-  for (const tx of scopedTransactions) {
-    const m = tx.date.getMonth();
-    const amt = Number(tx.amount);
-    if (tx.type === "INCOME") monthlyAgg[m].income += amt;
-    else monthlyAgg[m].expense += amt;
-  }
-  const monthly: MonthlyBucket[] = monthlyAgg.map((b, i) => ({
-    month: i + 1,
-    label: MONTH_SHORT[i],
-    income: Number(b.income.toFixed(2)),
-    expense: Number(b.expense.toFixed(2)),
-    net: Number((b.income - b.expense).toFixed(2)),
-  }));
-
-  // Para totais/pies: se mês filtrado, só esse mês; senão, o ano todo
+  // Para totais/pies anuais (não por grupo): se mês filtrado, só esse mês; senão, ano todo
   const filtered = hasMonthFilter
     ? scopedTransactions.filter((tx) => tx.date.getMonth() === scopeMonth)
     : scopedTransactions;
 
+  // Totais anuais (todas as contas)
   const incomeCatMap = new Map<
     string,
     { id: string; name: string; color: string; total: number }
@@ -426,9 +450,13 @@ export async function getDashboardData(
     }));
 
   // ============================================================
-  // TICKETS — análise por tipo (respeita o filtro anual/mensal)
+  // GRUPOS — análise por bucket (regular + 3 tickets)
+  // Cada grupo usa transações filtradas (mês ou ano), com:
+  //   • income/expense por categoria
+  //   • monthly (12 meses do ano) — sempre ano inteiro p/ ver tendência
+  //   • composition (income+expense unificado, cor por tipo)
   // ============================================================
-  type TicketBucket = {
+  type GroupBucket = {
     income: number;
     expense: number;
     txCount: number;
@@ -440,24 +468,36 @@ export async function getDashboardData(
       string,
       { id: string; name: string; color: string; total: number }
     >;
+    monthlyAgg: { income: number; expense: number }[];
   };
-  const mkBucket = (): TicketBucket => ({
+  const mkBucket = (): GroupBucket => ({
     income: 0,
     expense: 0,
     txCount: 0,
     incomeByCategory: new Map(),
     expenseByCategory: new Map(),
+    monthlyAgg: Array.from({ length: 12 }, () => ({ income: 0, expense: 0 })),
   });
-  const ticketBuckets: Record<TicketKey, TicketBucket> = {
+  const groupBuckets: Record<GroupKey, GroupBucket> = {
+    regular: mkBucket(),
     meal: mkBucket(),
     fuel: mkBucket(),
     award: mkBucket(),
   };
 
+  // Monthly: usa o ANO completo (não respeita filtro de mês), pra gráfico de tendência
+  for (const tx of scopedTransactions) {
+    const key = groupOfAccount(tx.account.type);
+    const m = tx.date.getMonth();
+    const amt = Number(tx.amount);
+    if (tx.type === "INCOME") groupBuckets[key].monthlyAgg[m].income += amt;
+    else groupBuckets[key].monthlyAgg[m].expense += amt;
+  }
+
+  // Income/expense/composition: respeita o filtro (mês ou ano)
   for (const tx of filtered) {
-    const bucketKey = isTicket(tx.account.type);
-    if (!bucketKey) continue;
-    const target = ticketBuckets[bucketKey];
+    const key = groupOfAccount(tx.account.type);
+    const target = groupBuckets[key];
     const amt = Number(tx.amount);
     target.txCount += 1;
     const cat = tx.category;
@@ -475,7 +515,7 @@ export async function getDashboardData(
   }
 
   const mapToSlices = (
-    m: TicketBucket["incomeByCategory"],
+    m: GroupBucket["incomeByCategory"],
     totalRef: number,
   ): CategorySlice[] =>
     Array.from(m.values())
@@ -489,19 +529,79 @@ export async function getDashboardData(
           totalRef > 0 ? Number(((e.total / totalRef) * 100).toFixed(1)) : 0,
       }));
 
-  const ticketMeta: Record<
-    TicketKey,
-    { label: string; accent: string; balance: number }
-  > = {
-    meal: { label: "Ticket Refeição", accent: "#f59e0b", balance: ticketMealBalance },
-    fuel: { label: "Ticket Combustível", accent: "#e11d48", balance: ticketFuelBalance },
-    award: { label: "Ticket Premiação", accent: "#8b5cf6", balance: ticketAwardBalance },
+  const buildComposition = (bucket: GroupBucket): CompositionSlice[] => {
+    const totalAbs = bucket.income + bucket.expense;
+    const incomeArr = Array.from(bucket.incomeByCategory.values()).sort(
+      (a, b) => b.total - a.total,
+    );
+    const expenseArr = Array.from(bucket.expenseByCategory.values()).sort(
+      (a, b) => b.total - a.total,
+    );
+    const slices: CompositionSlice[] = [];
+    const computeShare = (value: number): number =>
+      totalAbs > 0 ? Number(((value / totalAbs) * 100).toFixed(2)) : 0;
+    incomeArr.forEach((e, i) => {
+      slices.push({
+        id: `${e.id}::INCOME`,
+        name: e.name,
+        label: `${e.name} · Receita`,
+        txType: "INCOME",
+        color: INCOME_PALETTE[i % INCOME_PALETTE.length],
+        total: Number(e.total.toFixed(2)),
+        share: computeShare(e.total),
+      });
+    });
+    expenseArr.forEach((e, i) => {
+      slices.push({
+        id: `${e.id}::EXPENSE`,
+        name: e.name,
+        label: `${e.name} · Despesa`,
+        txType: "EXPENSE",
+        color: EXPENSE_PALETTE[i % EXPENSE_PALETTE.length],
+        total: Number(e.total.toFixed(2)),
+        share: computeShare(e.total),
+      });
+    });
+    return slices.sort((a, b) => b.total - a.total);
   };
 
-  const tickets: TicketAnalysis[] = (Object.keys(ticketMeta) as TicketKey[]).map(
+  const groupMeta: Record<
+    GroupKey,
+    { label: string; accent: string; balance: number }
+  > = {
+    regular: {
+      label: "Contas Regulares",
+      accent: "#6366f1",
+      balance: regularBalance,
+    },
+    meal: {
+      label: "Ticket Refeição",
+      accent: "#f59e0b",
+      balance: ticketMealBalance,
+    },
+    fuel: {
+      label: "Ticket Combustível",
+      accent: "#e11d48",
+      balance: ticketFuelBalance,
+    },
+    award: {
+      label: "Ticket Premiação",
+      accent: "#8b5cf6",
+      balance: ticketAwardBalance,
+    },
+  };
+
+  const groups: GroupAnalysis[] = (Object.keys(groupMeta) as GroupKey[]).map(
     (key) => {
-      const b = ticketBuckets[key];
-      const meta = ticketMeta[key];
+      const b = groupBuckets[key];
+      const meta = groupMeta[key];
+      const monthly: MonthlyBucket[] = b.monthlyAgg.map((m, i) => ({
+        month: i + 1,
+        label: MONTH_SHORT[i],
+        income: Number(m.income.toFixed(2)),
+        expense: Number(m.expense.toFixed(2)),
+        net: Number((m.income - m.expense).toFixed(2)),
+      }));
       return {
         key,
         label: meta.label,
@@ -511,11 +611,30 @@ export async function getDashboardData(
         expense: Number(b.expense.toFixed(2)),
         net: Number((b.income - b.expense).toFixed(2)),
         txCount: b.txCount,
+        composition: buildComposition(b),
+        monthly,
         incomeByCategory: mapToSlices(b.incomeByCategory, b.income),
         expenseByCategory: mapToSlices(b.expenseByCategory, b.expense),
       };
     },
   );
+
+  // Monthly global (todas as contas, ano em escopo) — soma dos 4 grupos
+  const monthly: MonthlyBucket[] = MONTH_SHORT.map((label, i) => {
+    let income = 0;
+    let expense = 0;
+    for (const g of groups) {
+      income += g.monthly[i].income;
+      expense += g.monthly[i].expense;
+    }
+    return {
+      month: i + 1,
+      label,
+      income: Number(income.toFixed(2)),
+      expense: Number(expense.toFixed(2)),
+      net: Number((income - expense).toFixed(2)),
+    };
+  });
 
   const topIncome = incomeByCategory[0]
     ? {
@@ -580,7 +699,7 @@ export async function getDashboardData(
       topIncome,
       topExpense,
       availableYears,
-      tickets,
+      groups,
     },
   };
 }
