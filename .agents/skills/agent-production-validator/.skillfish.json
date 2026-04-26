@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "agent-production-validator",
+  "owner": "nbossn",
+  "repo": "claude-code-base",
+  "path": "skills/agent-production-validator",
+  "branch": "master",
+  "sha": "d82ea0ee4cb8668047d7bc83aab7e90aae1366fc",
+  "source": "manual"
+}
