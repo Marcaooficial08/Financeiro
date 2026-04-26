@@ -35,6 +35,8 @@ interface ReportData {
   netCashflow: number
   /** @deprecated manter por compatibilidade — prefira ticketMeal/ticketFuel/ticketAward */
   ticket: TicketSummary
+  /** Contas regulares: Corrente, Poupança, Dinheiro, Cartão, Investimento, Outro. */
+  regular: TicketSummary
   ticketMeal: TicketSummary
   ticketFuel: TicketSummary
   ticketAward: TicketSummary
@@ -52,6 +54,7 @@ export interface PlainReportData {
   totalExpense: number
   netCashflow: number
   ticket: TicketSummary
+  regular: TicketSummary
   ticketMeal: TicketSummary
   ticketFuel: TicketSummary
   ticketAward: TicketSummary
@@ -90,6 +93,12 @@ export function toPlainReport(data: ReportData): PlainReportData {
       expense: num(data.ticket.expense),
       net: num(data.ticket.net),
       transactionCount: num(data.ticket.transactionCount),
+    },
+    regular: {
+      income: num(data.regular.income),
+      expense: num(data.regular.expense),
+      net: num(data.regular.net),
+      transactionCount: num(data.regular.transactionCount),
     },
     ticketMeal: {
       income: num(data.ticketMeal.income),
@@ -283,6 +292,52 @@ function exportToCSV(data: any[], filename: string) {
   return csvRows.join('\n')
 }
 
+// Tipos de conta considerados "ticket-benefício" — excluídos do grupo regular.
+const TICKET_ACCOUNT_TYPES: AccountType[] = ['TICKET_MEAL', 'TICKET_FUEL', 'TICKET_AWARD']
+
+// 🏦 RESUMO DE CONTAS REGULARES (Corrente, Poupança, Dinheiro, Cartão, Investimento, Outro)
+async function getRegularSummary(
+  userId: string,
+  start?: Date,
+  end?: Date,
+): Promise<TicketSummary> {
+  const { start: startDate, end: endDate } = validatePeriod(start, end)
+
+  const accounts = await prisma.account.findMany({
+    where: { userId, type: { notIn: TICKET_ACCOUNT_TYPES } },
+    select: { id: true },
+  })
+
+  if (accounts.length === 0) {
+    return { income: 0, expense: 0, net: 0, transactionCount: 0 }
+  }
+
+  const accountIds = accounts.map((a) => a.id)
+
+  const grouped = await prisma.transaction.groupBy({
+    by: ['type'],
+    where: {
+      userId,
+      accountId: { in: accountIds },
+      date: { gte: startDate, lte: endDate },
+    },
+    _sum: { amount: true },
+    _count: { _all: true },
+  })
+
+  let income = 0
+  let expense = 0
+  let transactionCount = 0
+  for (const row of grouped) {
+    const sum = row._sum?.amount ? Number(row._sum.amount) : 0
+    transactionCount += row._count?._all ?? 0
+    if (row.type === 'INCOME') income = sum
+    else expense = sum
+  }
+
+  return { income, expense, net: income - expense, transactionCount }
+}
+
 // 🎫 RESUMO DE TICKET (transações em contas do tipo informado)
 async function getTicketSummary(
   userId: string,
@@ -333,10 +388,11 @@ async function getTicketSummary(
 export async function generateReport(userId: string, start?: Date, end?: Date): Promise<ReportData> {
   try {
     const { start: startDate, end: endDate } = validatePeriod(start, end)
-    const [categories, monthly, basic, ticketMeal, ticketFuel, ticketAward] = await Promise.all([
+    const [categories, monthly, basic, regular, ticketMeal, ticketFuel, ticketAward] = await Promise.all([
       getCategorySummary(userId, startDate, endDate),
       getMonthlySummary(userId, startDate, endDate),
       getBasicSummary(userId, startDate, endDate),
+      getRegularSummary(userId, startDate, endDate),
       getTicketSummary(userId, 'TICKET_MEAL', startDate, endDate),
       getTicketSummary(userId, 'TICKET_FUEL', startDate, endDate),
       getTicketSummary(userId, 'TICKET_AWARD', startDate, endDate),
@@ -361,6 +417,7 @@ export async function generateReport(userId: string, start?: Date, end?: Date): 
       totalExpense,
       netCashflow: basic.netCashflow,
       ticket,
+      regular,
       ticketMeal,
       ticketFuel,
       ticketAward,

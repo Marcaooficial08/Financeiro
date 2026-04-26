@@ -22,14 +22,23 @@ const primaryBtn =
 const ghostBtn =
   "inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800";
 
-type TicketTone = "meal" | "fuel" | "award";
+type TicketTone = "regular" | "meal" | "fuel" | "award";
 
 const ticketTone: Record<
   TicketTone,
-  { label: string; accent: string; ring: string; dot: string; tint: string }
+  { label: string; eyebrow: string; accent: string; ring: string; dot: string; tint: string }
 > = {
+  regular: {
+    label: "Contas Regulares",
+    eyebrow: "Dossiê · contas",
+    accent: "#0ea5e9",
+    ring: "ring-sky-500/20",
+    dot: "bg-sky-500",
+    tint: "text-sky-600 dark:text-sky-300",
+  },
   meal: {
     label: "Ticket Refeição",
+    eyebrow: "Dossiê · benefício",
     accent: "#f59e0b",
     ring: "ring-amber-500/20",
     dot: "bg-amber-500",
@@ -37,6 +46,7 @@ const ticketTone: Record<
   },
   fuel: {
     label: "Ticket Combustível",
+    eyebrow: "Dossiê · benefício",
     accent: "#e11d48",
     ring: "ring-rose-500/20",
     dot: "bg-rose-500",
@@ -44,6 +54,7 @@ const ticketTone: Record<
   },
   award: {
     label: "Ticket Premiação",
+    eyebrow: "Dossiê · benefício",
     accent: "#8b5cf6",
     ring: "ring-violet-500/20",
     dot: "bg-violet-500",
@@ -154,7 +165,7 @@ function TicketDossier({
             />
             <div>
               <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
-                Dossiê · benefício
+                {meta.eyebrow}
               </p>
               <h3 className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-white">
                 {meta.label}
@@ -388,10 +399,17 @@ export default function ReportView({ report }: { report: PlainReportData }) {
           <section>
             <SectionHeader
               index="02"
-              title="Dossiês de ticket-benefício"
-              subtitle="Movimentações segmentadas por tipo de conta-benefício."
+              title="Dossiês por grupo de conta"
+              subtitle="Movimentações segmentadas por contas regulares e ticket-benefício."
             />
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <TicketDossier
+                tone="regular"
+                income={report.regular.income}
+                expense={report.regular.expense}
+                net={report.regular.net}
+                count={report.regular.transactionCount}
+              />
               <TicketDossier
                 tone="meal"
                 income={report.ticketMeal.income}
