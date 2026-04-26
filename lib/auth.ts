@@ -82,10 +82,15 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.image = user.image ?? null;
+      }
+      // Chamado por useSession().update({ image }) após upload de avatar
+      if (trigger === "update" && session?.image !== undefined) {
+        token.image = session.image;
       }
       return token;
     },
@@ -93,6 +98,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        session.user.image = (token.image as string | null | undefined) ?? null;
       }
       return session;
     },

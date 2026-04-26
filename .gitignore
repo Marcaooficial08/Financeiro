@@ -39,3 +39,6 @@ test_initial_balance.py
 
 # local tooling config
 .mcp.json
+
+# user uploads (avatars são servidos estaticamente, não versionados)
+public/uploads/

@@ -157,57 +157,57 @@ function TicketDossier({
         aria-hidden
       />
       <div className="relative p-6">
-        <div className="mb-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-3">
             <span
-              className={`inline-block h-2 w-2 rounded-full ${meta.dot}`}
+              className={`inline-block h-2 w-2 shrink-0 rounded-full ${meta.dot}`}
               aria-hidden
             />
-            <div>
+            <div className="min-w-0">
               <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
                 {meta.eyebrow}
               </p>
-              <h3 className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-white">
+              <h3 className="mt-1 truncate text-lg font-semibold tracking-tight text-gray-900 dark:text-white">
                 {meta.label}
               </h3>
             </div>
           </div>
           <span
-            className={`rounded-full px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] ring-1 ${meta.ring} ${meta.tint}`}
+            className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] ring-1 ${meta.ring} ${meta.tint}`}
           >
-            {count} {count === 1 ? "movimentação" : "movimentações"}
+            {count} {count === 1 ? "mov." : "movs."}
           </span>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 dark:border-gray-800 dark:bg-gray-950/40">
-            <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
+        <div className="space-y-2">
+          <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-gray-950/40">
+            <p className={`${smallCaps} shrink-0 text-gray-500 dark:text-gray-400`}>
               Receitas
             </p>
             <p
-              className={`mt-2 text-xl ${numeral} text-emerald-600 dark:text-emerald-400`}
+              className={`${numeral} whitespace-nowrap text-sm text-emerald-600 dark:text-emerald-400`}
               style={tabularStyle}
             >
               {formatBRL(income)}
             </p>
           </div>
-          <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 dark:border-gray-800 dark:bg-gray-950/40">
-            <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
+          <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-gray-950/40">
+            <p className={`${smallCaps} shrink-0 text-gray-500 dark:text-gray-400`}>
               Despesas
             </p>
             <p
-              className={`mt-2 text-xl ${numeral} text-rose-600 dark:text-rose-400`}
+              className={`${numeral} whitespace-nowrap text-sm text-rose-600 dark:text-rose-400`}
               style={tabularStyle}
             >
               {formatBRL(expense)}
             </p>
           </div>
-          <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 dark:border-gray-800 dark:bg-gray-950/40">
-            <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
+          <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-gray-950/40">
+            <p className={`${smallCaps} shrink-0 text-gray-500 dark:text-gray-400`}>
               Saldo líquido
             </p>
             <p
-              className={`mt-2 text-xl ${numeral} ${
+              className={`${numeral} whitespace-nowrap text-sm ${
                 netPositive
                   ? "text-gray-900 dark:text-white"
                   : "text-rose-600 dark:text-rose-400"
