@@ -9,7 +9,8 @@ import {
   updateAccountName,
   transferBalance,
 } from "./actions";
-import { Account } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+type Account = Prisma.AccountGetPayload<object>;
 
 const brl = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
