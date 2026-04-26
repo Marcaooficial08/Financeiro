@@ -118,6 +118,16 @@ export async function updateAccountBalance(id: string, rawBalance: string) {
       return { success: false, error: "Usuário não autenticado" };
     }
 
+    // Edição manual de saldo quebra a invariante saldo↔transações; restrita a ADMIN.
+    // Usuários comuns devem ajustar via transações de receita/despesa categorizadas.
+    if (session?.user?.role !== "ADMIN") {
+      return {
+        success: false,
+        error:
+          "Edição manual de saldo é restrita a administradores. Use uma transação de receita ou despesa para ajustar o saldo.",
+      };
+    }
+
     const existing = await prisma.account.findFirst({ where: { id, userId } });
     if (!existing) {
       return { success: false, error: "Conta não encontrada" };

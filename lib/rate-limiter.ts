@@ -9,7 +9,8 @@ interface RateLimitConfig {
 
 // Configurações por endpoint
 const RATE_LIMIT_CONFIGS: Record<string, RateLimitConfig> = {
-  '/api/auth/login': {
+  // NextAuth credentials provider — endpoint real chamado no submit do login.
+  '/api/auth/callback/credentials': {
     windowMs: 15 * 60 * 1000, // 15 minutos
     max: 5,                    // Máximo 5 tentativas
     message: "Muitas tentativas de login. Tente novamente em 15 minutos."
@@ -24,6 +25,15 @@ const RATE_LIMIT_CONFIGS: Record<string, RateLimitConfig> = {
     max: 3,                    // Máximo 3 solicitações
     message: "Muitas solicitações. Tente novamente em 15 minutos."
   }
+}
+
+/**
+ * Extrai IP do request (x-forwarded-for / x-real-ip).
+ */
+export function getClientIp(headers: { get(name: string): string | null }): string {
+  const forwardedFor = headers.get("x-forwarded-for")
+  const realIp = headers.get("x-real-ip")
+  return forwardedFor?.split(",")[0]?.trim() || realIp || "unknown"
 }
 
 // 🗃️ ARMAZENAMENTO EM MEMÓRIA (em produção: Redis ou banco)
@@ -77,9 +87,7 @@ export function checkRateLimit(ip: string, path: string) {
 export function withRateLimit(path: string) {
   return function (handler: (req: NextRequest, ip: string) => Promise<NextResponse>) {
     return async (req: NextRequest) => {
-      const forwardedFor = req.headers.get("x-forwarded-for")
-      const realIp = req.headers.get("x-real-ip")
-      const ip = forwardedFor?.split(",")[0].trim() || realIp || "unknown"
+      const ip = getClientIp(req.headers)
 
       const { ok, message, retryAfter } = checkRateLimit(ip, path)
 

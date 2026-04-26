@@ -1,6 +1,20 @@
 import type { NextAuthOptions } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limiter";
+
+if (!process.env.NEXTAUTH_SECRET) {
+  throw new Error(
+    "NEXTAUTH_SECRET é obrigatória. Defina a variável de ambiente antes de iniciar o app.",
+  );
+}
+
+class RateLimitedLoginError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RateLimitedLoginError";
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -12,7 +26,21 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
+        // Rate limit no endpoint real do NextAuth credentials.
+        const headers = req?.headers ?? {};
+        const ip = getClientIp({
+          get: (name: string) => {
+            const value = (headers as Record<string, string | string[] | undefined>)[name];
+            if (Array.isArray(value)) return value[0] ?? null;
+            return value ?? null;
+          },
+        });
+        const limit = checkRateLimit(ip, "/api/auth/callback/credentials");
+        if (!limit.ok) {
+          throw new RateLimitedLoginError(limit.message ?? "Muitas tentativas de login.");
+        }
+
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
