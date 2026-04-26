@@ -10,6 +10,16 @@ type SessionUserWithRole = {
   role?: string;
 };
 
+type AdminUser = {
+  id: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+  role: string;
+  emailVerified: Date | null;
+  createdAt: Date | string;
+};
+
 export default async function AdminPage() {
   const session = await getServerSession(authOptions);
   const sessionUser = session?.user as SessionUserWithRole | undefined;
@@ -18,7 +28,7 @@ export default async function AdminPage() {
     return <div>Access denied. You must be an administrator to view this page.</div>;
   }
 
-  const users = await getUsers();
+  const users = (await getUsers()) as AdminUser[];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
