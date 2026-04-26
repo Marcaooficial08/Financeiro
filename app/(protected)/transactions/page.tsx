@@ -9,6 +9,12 @@ import {
   deleteTransaction,
 } from "./actions";
 import { Transaction, Account, Category, AccountType } from "@prisma/client";
+import DatePicker from "@/components/DatePicker";
+import {
+  todayLocalISO,
+  calendarDateToISO,
+  formatCalendarDateBR,
+} from "@/lib/date";
 
 const brl = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -51,7 +57,7 @@ const emptyForm = () => ({
   description: "",
   accountId: "",
   categoryId: "",
-  date: new Date().toISOString().split("T")[0],
+  date: todayLocalISO(),
 });
 
 export default function TransactionsPage() {
@@ -118,7 +124,7 @@ export default function TransactionsPage() {
       description: tx.description ?? "",
       accountId: tx.accountId,
       categoryId: tx.categoryId,
-      date: new Date(tx.date).toISOString().split("T")[0],
+      date: calendarDateToISO(tx.date),
     });
     setEditingId(tx.id);
     setShowForm(true);
@@ -486,16 +492,14 @@ export default function TransactionsPage() {
               >
                 Data
               </label>
-              <input
-                type="date"
+              <DatePicker
                 id="date"
                 value={formData.date}
-                onChange={(e) =>
-                  setFormData({ ...formData, date: e.target.value })
-                }
-                className={inputCls}
-                required
+                onChange={(iso) => setFormData({ ...formData, date: iso })}
               />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Padrão: hoje. Navegue entre meses no calendário.
+              </p>
             </div>
           </div>
 
@@ -682,9 +686,7 @@ export default function TransactionsPage() {
                               aria-hidden
                             />
                             <span className="tabular-nums">
-                              {new Date(transaction.date).toLocaleDateString(
-                                "pt-BR",
-                              )}
+                              {formatCalendarDateBR(transaction.date)}
                             </span>
                           </p>
                         </div>

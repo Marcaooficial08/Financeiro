@@ -44,6 +44,20 @@ export const DEFAULT_CATEGORIES = [
     color: "#111827",
   },
   {
+    systemKey: "VALE_TRANSPORTE_EXPENSE",
+    name: "Vale Transporte",
+    type: "EXPENSE" as const,
+    icon: "🚌",
+    color: "#0ea5e9",
+  },
+  {
+    systemKey: "VALE_TRANSPORTE_INCOME",
+    name: "Vale Transporte",
+    type: "INCOME" as const,
+    icon: "🚌",
+    color: "#0ea5e9",
+  },
+  {
     systemKey: "SALARY",
     name: "Salário",
     type: "INCOME" as const,
@@ -67,10 +81,9 @@ export const DEFAULT_CATEGORIES = [
 ];
 
 /**
- * Mapa de systemKey para tipo de conta exigido.
- * Cada systemKey só pode ser usada em contas do tipo indicado.
- * Categorias sem systemKey (user-defined) não aparecem aqui e só podem
- * ser usadas em contas regulares (ver requiresRegularAccount).
+ * Mapa legado de systemKey → tipo de conta exigido. Mantido para
+ * compatibilidade com chamadas existentes; a validação real agora é feita
+ * em `validateCategoryOnAccount`, que expressa regras flexíveis.
  */
 export const CATEGORY_ACCOUNT_TYPE: Record<string, AccountType> = {
   TICKET_MEAL: "TICKET_MEAL",
@@ -79,6 +92,8 @@ export const CATEGORY_ACCOUNT_TYPE: Record<string, AccountType> = {
   FUEL_INCOME: "TICKET_FUEL",
   UBER_EXPENSE: "TICKET_FUEL",
   UBER_INCOME: "TICKET_FUEL",
+  VALE_TRANSPORTE_EXPENSE: "TICKET_FUEL",
+  VALE_TRANSPORTE_INCOME: "TICKET_FUEL",
   TICKET_AWARD: "TICKET_AWARD",
   TICKET_AWARD_INCOME: "TICKET_AWARD",
 };
@@ -93,6 +108,36 @@ export function isTicketAccountType(type: AccountType): boolean {
   return TICKET_ACCOUNT_TYPES.has(type);
 }
 
+/** systemKeys de mobilidade (Combustível, Uber, Vale Transporte). */
+export const MOBILITY_SYSTEM_KEYS: ReadonlySet<string> = new Set([
+  "FUEL_EXPENSE",
+  "FUEL_INCOME",
+  "UBER_EXPENSE",
+  "UBER_INCOME",
+  "VALE_TRANSPORTE_EXPENSE",
+  "VALE_TRANSPORTE_INCOME",
+]);
+
+export function isMobilitySystemKey(systemKey: string | null | undefined): boolean {
+  return !!systemKey && MOBILITY_SYSTEM_KEYS.has(systemKey);
+}
+
+const MEAL_SYSTEM_KEYS: ReadonlySet<string> = new Set([
+  "TICKET_MEAL",
+  "TICKET_MEAL_INCOME",
+]);
+
+const AWARD_SYSTEM_KEYS: ReadonlySet<string> = new Set([
+  "TICKET_AWARD",
+  "TICKET_AWARD_INCOME",
+]);
+
+const TICKET_SYSTEM_KEYS: ReadonlySet<string> = new Set<string>([
+  ...MOBILITY_SYSTEM_KEYS,
+  ...MEAL_SYSTEM_KEYS,
+  ...AWARD_SYSTEM_KEYS,
+]);
+
 /** systemKeys cuja movimentação sempre debita o saldo da conta, mesmo em INCOME. */
 const ALWAYS_DEBIT_SYSTEM_KEYS: ReadonlySet<string> = new Set([
   "UBER_EXPENSE",
@@ -104,12 +149,67 @@ export function isAlwaysDebitCategory(systemKey: string | null | undefined): boo
 }
 
 /**
- * Retorna o AccountType exigido para a categoria informada, ou null
- * quando a categoria não é de sistema (nesse caso ela deve ir para conta regular).
+ * @deprecated use `validateCategoryOnAccount`. Mantido para compatibilidade
+ * com call sites legados.
  */
-export function getRequiredAccountType(systemKey: string | null | undefined): AccountType | null {
+export function getRequiredAccountType(
+  systemKey: string | null | undefined,
+): AccountType | null {
   if (!systemKey) return null;
   return CATEGORY_ACCOUNT_TYPE[systemKey] ?? null;
+}
+
+export type CategoryAccountValidation =
+  | { ok: true }
+  | { ok: false; error: string };
+
+/**
+ * Regras de roteamento categoria → conta:
+ * - TICKET_AWARD: aceita qualquer categoria (sem restrição).
+ * - TICKET_MEAL: aceita qualquer categoria EXCETO mobilidade (Uber, Combustível, Vale Transporte).
+ * - TICKET_FUEL: aceita SOMENTE categorias de mobilidade.
+ * - Contas regulares (Corrente, Poupança, Caixa, etc.): bloqueia categorias roteadas a tickets.
+ */
+export function validateCategoryOnAccount(
+  systemKey: string | null | undefined,
+  accountType: AccountType,
+): CategoryAccountValidation {
+  switch (accountType) {
+    case "TICKET_AWARD":
+      return { ok: true };
+
+    case "TICKET_MEAL":
+      if (isMobilitySystemKey(systemKey)) {
+        return {
+          ok: false,
+          error:
+            "Categorias de mobilidade (Uber, Combustível, Vale Transporte) não podem ser usadas em contas Ticket Refeição.",
+        };
+      }
+      return { ok: true };
+
+    case "TICKET_FUEL":
+      if (!isMobilitySystemKey(systemKey)) {
+        return {
+          ok: false,
+          error:
+            "Contas Ticket Combustível aceitam apenas categorias de mobilidade: Uber, Combustível e Vale Transporte.",
+        };
+      }
+      return { ok: true };
+
+    default:
+      // Contas regulares (CHECKING, SAVINGS, CASH, CREDIT_CARD, INVESTMENT, OTHER):
+      // bloqueia qualquer categoria roteada a ticket.
+      if (systemKey && TICKET_SYSTEM_KEYS.has(systemKey)) {
+        return {
+          ok: false,
+          error:
+            "Categorias de ticket (Refeição, Combustível, Premiação, Vale Transporte) só podem ser usadas em contas do tipo correspondente.",
+        };
+      }
+      return { ok: true };
+  }
 }
 
 type Client = PrismaClient | Prisma.TransactionClient;

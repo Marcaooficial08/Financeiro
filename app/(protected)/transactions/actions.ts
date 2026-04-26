@@ -7,7 +7,16 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { z } from "zod";
 import { getTransactionEffectForCategory } from "@/lib/transactions";
-import { getRequiredAccountType, isTicketAccountType } from "@/lib/defaults";
+import { validateCategoryOnAccount } from "@/lib/defaults";
+import { parseCalendarDate, todayLocalISO } from "@/lib/date";
+
+function coerceCalendarDate(raw: unknown): Date {
+  const iso =
+    typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw)
+      ? raw
+      : todayLocalISO();
+  return parseCalendarDate(iso);
+}
 
 function parseDecimalInput(raw: unknown): number {
   if (typeof raw !== "string" || raw.trim() === "") return NaN;
@@ -45,7 +54,7 @@ export async function createTransaction(formData: FormData) {
       amount: parseDecimalInput(rawAmount),
       type: typeof rawType === "string" ? rawType as "INCOME" | "EXPENSE" : "EXPENSE",
       description: typeof rawDescription === "string" ? rawDescription.trim() : "",
-      date: typeof rawDate === "string" ? new Date(rawDate) : new Date(),
+      date: coerceCalendarDate(rawDate),
       accountId: typeof rawAccountId === "string" ? rawAccountId : "",
       categoryId: typeof rawCategoryId === "string" ? rawCategoryId : "",
     });
@@ -64,29 +73,10 @@ export async function createTransaction(formData: FormData) {
       return { success: false, error: "Categoria não encontrada ou incompatível com o tipo da transação" };
     }
 
-    // Roteamento categoria → tipo de conta
-    const requiredAccountType = getRequiredAccountType(category.systemKey);
-    if (requiredAccountType) {
-      if (account.type !== requiredAccountType) {
-        const label =
-          requiredAccountType === "TICKET_MEAL"
-            ? "Ticket refeição"
-            : requiredAccountType === "TICKET_FUEL"
-              ? "Ticket combustível"
-              : requiredAccountType === "TICKET_AWARD"
-                ? "Ticket premiação"
-                : requiredAccountType;
-        return {
-          success: false,
-          error: `A categoria ${category.name} só pode ser usada em contas do tipo ${label}.`,
-        };
-      }
-    } else if (isTicketAccountType(account.type)) {
-      // Categoria não-ticket não pode ser lançada em conta de ticket.
-      return {
-        success: false,
-        error: "Esta categoria não pode ser usada em contas Ticket (refeição, combustível ou premiação).",
-      };
+    // Roteamento categoria → tipo de conta (regras flexíveis em validateCategoryOnAccount).
+    const validation = validateCategoryOnAccount(category.systemKey, account.type);
+    if (!validation.ok) {
+      return { success: false, error: validation.error };
     }
 
     // Cálculo do efeito no saldo (Uber sempre debita).
@@ -188,7 +178,7 @@ export async function updateTransaction(id: string, formData: FormData) {
       amount: parseDecimalInput(rawAmount),
       type: typeof rawType === "string" ? (rawType as "INCOME" | "EXPENSE") : "EXPENSE",
       description: typeof rawDescription === "string" ? rawDescription.trim() : "",
-      date: typeof rawDate === "string" ? new Date(rawDate) : new Date(),
+      date: coerceCalendarDate(rawDate),
       accountId: typeof rawAccountId === "string" ? rawAccountId : "",
       categoryId: typeof rawCategoryId === "string" ? rawCategoryId : "",
     });
@@ -218,28 +208,12 @@ export async function updateTransaction(id: string, formData: FormData) {
       };
     }
 
-    const requiredAccountType = getRequiredAccountType(newCategory.systemKey);
-    if (requiredAccountType) {
-      if (newAccount.type !== requiredAccountType) {
-        const label =
-          requiredAccountType === "TICKET_MEAL"
-            ? "Ticket refeição"
-            : requiredAccountType === "TICKET_FUEL"
-              ? "Ticket combustível"
-              : requiredAccountType === "TICKET_AWARD"
-                ? "Ticket premiação"
-                : requiredAccountType;
-        return {
-          success: false,
-          error: `A categoria ${newCategory.name} só pode ser usada em contas do tipo ${label}.`,
-        };
-      }
-    } else if (isTicketAccountType(newAccount.type)) {
-      return {
-        success: false,
-        error:
-          "Esta categoria não pode ser usada em contas Ticket (refeição, combustível ou premiação).",
-      };
+    const validation = validateCategoryOnAccount(
+      newCategory.systemKey,
+      newAccount.type,
+    );
+    if (!validation.ok) {
+      return { success: false, error: validation.error };
     }
 
     const oldEffect = getTransactionEffectForCategory(
