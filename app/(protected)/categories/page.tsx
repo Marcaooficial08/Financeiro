@@ -7,7 +7,18 @@ import {
   deleteCategory,
   updateCategory,
 } from "./actions";
-import { Category } from "@prisma/client";
+type Category = {
+  id: string;
+  userId: string;
+  name: string;
+  type: string;
+  icon: string | null;
+  color: string | null;
+  systemKey: string | null;
+  isActive: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+};
 
 const smallCaps = "uppercase tracking-[0.22em] text-[10px] font-medium";
 
