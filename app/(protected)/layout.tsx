@@ -11,13 +11,11 @@ export default async function ProtectedLayout({
 
   return (
     <div className="min-h-screen flex bg-gray-50 dark:bg-gray-950">
-      {/* Sidebar */}
       <Sidebar session={session} />
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col ml-64">
-        {/* We could add a top navbar here if needed, but for now we'll just have the main content */}
-        <main className="flex-1 p-6">
+      {/* ml-0 em mobile (sidebar colapsada), ml-64 em lg+ (sidebar fixa visível) */}
+      <div className="flex-1 flex flex-col ml-0 lg:ml-64 min-w-0">
+        {/* pt-14 em mobile reserva espaço para o botão hamburger fixo */}
+        <main className="flex-1 p-4 pt-16 sm:p-6 sm:pt-16 lg:p-6 lg:pt-6">
           {children}
         </main>
       </div>

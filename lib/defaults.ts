@@ -1,4 +1,15 @@
-import type { AccountType, Prisma, PrismaClient } from "@prisma/client";
+import type { prisma as prismaClient, PrismaTx } from "@/lib/prisma";
+
+type AccountType =
+  | "CHECKING"
+  | "SAVINGS"
+  | "CASH"
+  | "CREDIT_CARD"
+  | "INVESTMENT"
+  | "OTHER"
+  | "TICKET_MEAL"
+  | "TICKET_FUEL"
+  | "TICKET_AWARD";
 
 export const DEFAULT_CATEGORIES = [
   {
@@ -212,7 +223,7 @@ export function validateCategoryOnAccount(
   }
 }
 
-type Client = PrismaClient | Prisma.TransactionClient;
+type Client = typeof prismaClient | PrismaTx;
 
 export async function ensureDefaultCategories(userId: string, client: Client) {
   for (const cat of DEFAULT_CATEGORIES) {

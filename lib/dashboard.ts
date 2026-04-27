@@ -1,5 +1,17 @@
 import { prisma } from "@/lib/prisma";
-import { AccountType, TransactionType } from "@prisma/client";
+
+type AccountType =
+  | "CHECKING"
+  | "SAVINGS"
+  | "CASH"
+  | "CREDIT_CARD"
+  | "INVESTMENT"
+  | "OTHER"
+  | "TICKET_MEAL"
+  | "TICKET_FUEL"
+  | "TICKET_AWARD";
+
+type TransactionType = "INCOME" | "EXPENSE";
 
 export interface DashboardCard {
   regularBalance: number;

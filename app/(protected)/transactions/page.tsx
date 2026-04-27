@@ -8,7 +8,54 @@ import {
   getTransactions,
   deleteTransaction,
 } from "./actions";
-import { Transaction, Account, Category, AccountType } from "@prisma/client";
+type AccountType =
+  | "CHECKING"
+  | "SAVINGS"
+  | "CASH"
+  | "CREDIT_CARD"
+  | "INVESTMENT"
+  | "OTHER"
+  | "TICKET_MEAL"
+  | "TICKET_FUEL"
+  | "TICKET_AWARD";
+
+type Account = {
+  id: string;
+  userId: string;
+  name: string;
+  type: AccountType;
+  balance: number | string | { toString(): string };
+  currency: string;
+  isActive: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+};
+
+type Category = {
+  id: string;
+  userId: string;
+  name: string;
+  type: "INCOME" | "EXPENSE";
+  icon: string | null;
+  color: string | null;
+  systemKey: string | null;
+  isActive: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+};
+
+type Transaction = {
+  id: string;
+  userId: string;
+  accountId: string;
+  categoryId: string;
+  amount: number | string | { toString(): string };
+  type: "INCOME" | "EXPENSE";
+  description: string | null;
+  date: Date | string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+};
 import DatePicker from "@/components/DatePicker";
 import {
   todayLocalISO,
@@ -653,7 +700,7 @@ export default function TransactionsPage() {
                 return (
                   <div
                     key={transaction.id}
-                    className={`group relative flex items-center justify-between gap-4 px-6 py-4 transition hover:bg-gray-50/60 dark:hover:bg-gray-800/40 ${
+                    className={`group relative flex items-center justify-between gap-2 px-4 py-4 sm:gap-4 sm:px-6 transition hover:bg-gray-50/60 dark:hover:bg-gray-800/40 ${
                       isEditing
                         ? "bg-indigo-50/40 dark:bg-indigo-950/20"
                         : ""
@@ -692,26 +739,27 @@ export default function TransactionsPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
                       <span
-                        className={`text-base ${numeral} ${
+                        className={`text-sm sm:text-base ${numeral} ${
                           isIncome
                             ? "text-emerald-600 dark:text-emerald-400"
                             : "text-rose-600 dark:text-rose-400"
                         }`}
                         style={tabularStyle}
                       >
-                        {isIncome ? "+" : "−"} {brl(Number(transaction.amount))}
+                        {isIncome ? "+" : "−"}{" "}
+                        {brl(Number(transaction.amount))}
                       </span>
                       <button
                         onClick={() => startEdit(transaction)}
-                        className="rounded-lg px-2.5 py-1.5 text-xs text-indigo-600 transition hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/40"
+                        className="rounded-lg px-1.5 py-1 text-xs text-indigo-600 transition hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/40 sm:px-2.5 sm:py-1.5"
                       >
                         Editar
                       </button>
                       <button
                         onClick={() => handleDelete(transaction.id)}
-                        className="rounded-lg px-2.5 py-1.5 text-xs text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                        className="rounded-lg px-1.5 py-1 text-xs text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 sm:px-2.5 sm:py-1.5"
                       >
                         Excluir
                       </button>

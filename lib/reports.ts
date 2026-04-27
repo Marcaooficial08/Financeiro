@@ -1,5 +1,17 @@
 import { prisma } from "@/lib/prisma"
-import { TransactionType, AccountType } from "@prisma/client"
+
+type TransactionType = "INCOME" | "EXPENSE"
+
+type AccountType =
+  | "CHECKING"
+  | "SAVINGS"
+  | "CASH"
+  | "CREDIT_CARD"
+  | "INVESTMENT"
+  | "OTHER"
+  | "TICKET_MEAL"
+  | "TICKET_FUEL"
+  | "TICKET_AWARD"
 
 // 📊 TIPO DE RETORNO PARA AGREGADOS
 interface CategorySummary {
