@@ -9,7 +9,7 @@ import {
   FiAlertCircle,
 } from "react-icons/fi";
 
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES = 2 * 1024 * 1024; // 2 MB — armazenado como base64 no banco
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 type Status = "idle" | "uploading" | "success" | "error";
@@ -19,7 +19,7 @@ const smallCaps = "uppercase tracking-[0.22em] text-[10px] font-medium";
 function validate(f: File): string | null {
   if (!ALLOWED_TYPES.includes(f.type))
     return "Formato inválido. Use JPG, PNG ou WebP.";
-  if (f.size > MAX_BYTES) return "Arquivo muito grande. Máximo 5 MB.";
+  if (f.size > MAX_BYTES) return "Arquivo muito grande. Máximo 2 MB.";
   return null;
 }
 
@@ -106,7 +106,7 @@ export default function ProfilePage() {
           </h1>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
             Arraste uma imagem ou clique para selecionar. JPG, PNG ou WebP —
-            máx. 5 MB.
+            máx. 2 MB.
           </p>
         </header>
 
@@ -172,7 +172,7 @@ export default function ProfilePage() {
                     : "Arraste aqui ou clique para selecionar"}
                 </p>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
-                  JPG, PNG ou WebP — máx. 5 MB
+                  JPG, PNG ou WebP — máx. 2 MB
                 </p>
               </div>
               <input

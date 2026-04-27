@@ -493,11 +493,10 @@ export function CategoryDonut({
             paddingAngle={1.5}
             stroke="white"
             strokeWidth={1.5}
-            label={({ percent }) =>
-              percent && percent > 0.08
-                ? `${(percent * 100).toFixed(0)}%`
-                : ""
-            }
+            label={({ payload }) => {
+              const item = payload as CategorySlice;
+              return item?.percent > 8 ? `${item.percent.toFixed(0)}%` : "";
+            }}
             labelLine={false}
           >
             {data.map((slice) => (
