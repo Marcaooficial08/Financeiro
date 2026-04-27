@@ -29,6 +29,11 @@ type CategoryExpenseRow = {
   transactionCount: number | string | bigint;
 };
 
+type GroupedTransactionSum = {
+  type: "INCOME" | "EXPENSE";
+  _sum: { amount: number | string | null };
+};
+
 async function requireOwnership(userId: string) {
   const session = await getServerSession(authOptions);
   const sessionUserId = (session?.user as { id?: string } | undefined)?.id;
@@ -152,16 +157,17 @@ export async function getIncomeVsExpenses(
       if (filters.endDate) where.date.lte = filters.endDate;
     }
 
-    const grouped = await prisma.transaction.groupBy({
+    const rawGrouped = await prisma.transaction.groupBy({
       by: ["type"],
       where,
       _sum: { amount: true },
     });
+    const grouped = rawGrouped as unknown as GroupedTransactionSum[];
 
     const totalIncome =
-      grouped.find((g) => g.type === "INCOME")?._sum.amount ?? 0;
+      grouped.find((g: GroupedTransactionSum) => g.type === "INCOME")?._sum.amount ?? 0;
     const totalExpense =
-      grouped.find((g) => g.type === "EXPENSE")?._sum.amount ?? 0;
+      grouped.find((g: GroupedTransactionSum) => g.type === "EXPENSE")?._sum.amount ?? 0;
 
     return {
       totalIncome: Number(totalIncome),
