@@ -6,6 +6,29 @@ import { authOptions } from "@/lib/auth";
 
 type TransactionType = "INCOME" | "EXPENSE";
 
+type MonthlySummaryRow = {
+  year: number;
+  month: number;
+  totalIncome: number | string;
+  totalExpense: number | string;
+  netBalance: number | string;
+  savingsRate: number | string | null;
+};
+
+type MonthlyGroupRow = {
+  year: number;
+  month: number;
+  totalIncome: number | string;
+  totalExpense: number | string;
+};
+
+type CategoryExpenseRow = {
+  categoryName: string;
+  categoryType: string;
+  totalAmount: number | string;
+  transactionCount: number | string | bigint;
+};
+
 async function requireOwnership(userId: string) {
   const session = await getServerSession(authOptions);
   const sessionUserId = (session?.user as { id?: string } | undefined)?.id;
@@ -37,16 +60,7 @@ export async function getMonthlySummary(
       params.push(filters.endDate);
     }
 
-    const raw = await prisma.$queryRawUnsafe<
-      Array<{
-        year: number;
-        month: number;
-        totalIncome: unknown;
-        totalExpense: unknown;
-        netBalance: unknown;
-        savingsRate: unknown;
-      }>
-    >(
+    const raw = await prisma.$queryRawUnsafe<MonthlySummaryRow[]>(
       `SELECT
         EXTRACT(YEAR FROM "date")::int AS year,
         EXTRACT(MONTH FROM "date")::int AS month,
@@ -67,7 +81,7 @@ export async function getMonthlySummary(
       ...params
     );
 
-    return raw.map((row) => ({
+    return raw.map((row: MonthlySummaryRow) => ({
       year: row.year,
       month: row.month,
       totalIncome: Number(row.totalIncome),
@@ -106,14 +120,7 @@ export async function getIncomeVsExpenses(
         params.push(filters.endDate);
       }
 
-      const raw = await prisma.$queryRawUnsafe<
-        Array<{
-          year: number;
-          month: number;
-          totalIncome: unknown;
-          totalExpense: unknown;
-        }>
-      >(
+      const raw = await prisma.$queryRawUnsafe<MonthlyGroupRow[]>(
         `SELECT
           EXTRACT(YEAR FROM "date")::int AS year,
           EXTRACT(MONTH FROM "date")::int AS month,
@@ -126,7 +133,7 @@ export async function getIncomeVsExpenses(
         ...params
       );
 
-      return raw.map((row) => ({
+      return raw.map((row: MonthlyGroupRow) => ({
         year: row.year,
         month: row.month,
         totalIncome: Number(row.totalIncome),
@@ -195,14 +202,7 @@ export async function getExpensesByCategory(
       params.push(filters.type);
     }
 
-    const raw = await prisma.$queryRawUnsafe<
-      Array<{
-        categoryName: string;
-        categoryType: string;
-        totalAmount: unknown;
-        transactionCount: bigint | number;
-      }>
-    >(
+    const raw = await prisma.$queryRawUnsafe<CategoryExpenseRow[]>(
       `SELECT
         c."name" AS "categoryName",
         c."type" AS "categoryType",
@@ -216,7 +216,7 @@ export async function getExpensesByCategory(
       ...params
     );
 
-    return raw.map((row) => ({
+    return raw.map((row: CategoryExpenseRow) => ({
       categoryName: row.categoryName,
       categoryType: row.categoryType,
       totalAmount: Number(row.totalAmount),
