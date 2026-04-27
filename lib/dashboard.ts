@@ -188,6 +188,51 @@ function groupOfAccount(type: AccountType): GroupKey {
   return "regular";
 }
 
+type DecimalLike = number | string | { toString(): string };
+
+type AccountRow = { balance: DecimalLike; type: AccountType };
+
+type MonthTxRow = {
+  type: TransactionType;
+  amount: DecimalLike;
+  account: { type: AccountType };
+};
+
+type SeriesTxRow = {
+  type: TransactionType;
+  amount: DecimalLike;
+  date: Date;
+  account: { type: AccountType };
+};
+
+type ExpenseRow = {
+  amount: DecimalLike;
+  category: { id: string; name: string; color: string | null } | null;
+};
+
+type RecentRow = {
+  id: string;
+  description: string | null;
+  amount: DecimalLike;
+  type: TransactionType;
+  date: Date;
+  category: { name: string; icon: string | null } | null;
+  account: { name: string; type: AccountType };
+};
+
+type ScopedTxRow = {
+  type: TransactionType;
+  amount: DecimalLike;
+  date: Date;
+  category: { id: string; name: string; color: string | null } | null;
+  account: { type: AccountType };
+};
+
+type DateRangeAgg = {
+  _min: { date: Date | null };
+  _max: { date: Date | null };
+};
+
 export async function getDashboardData(
   userId: string,
   options: DashboardOptions = {},
@@ -206,15 +251,7 @@ export async function getDashboardData(
   const yearStart = new Date(scopeYear, 0, 1);
   const yearEnd = new Date(scopeYear + 1, 0, 1);
 
-  const [
-    accounts,
-    monthTransactions,
-    seriesTransactions,
-    expenseRows,
-    recent,
-    scopedTransactions,
-    dateRange,
-  ] = await Promise.all([
+  const rawResults = await Promise.all([
     prisma.account.findMany({
       where: { userId },
       select: { balance: true, type: true },
@@ -274,6 +311,14 @@ export async function getDashboardData(
       _max: { date: true },
     }),
   ]);
+
+  const accounts = rawResults[0] as unknown as AccountRow[];
+  const monthTransactions = rawResults[1] as unknown as MonthTxRow[];
+  const seriesTransactions = rawResults[2] as unknown as SeriesTxRow[];
+  const expenseRows = rawResults[3] as unknown as ExpenseRow[];
+  const recent = rawResults[4] as unknown as RecentRow[];
+  const scopedTransactions = rawResults[5] as unknown as ScopedTxRow[];
+  const dateRange = rawResults[6] as unknown as DateRangeAgg;
 
   // Saldos atuais (snapshot das contas)
   let regularBalance = 0;

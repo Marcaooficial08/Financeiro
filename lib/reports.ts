@@ -13,6 +13,36 @@ type AccountType =
   | "TICKET_FUEL"
   | "TICKET_AWARD"
 
+type DecimalLike = number | string | { toString(): string }
+
+type CategoryRow = {
+  id: string
+  name: string
+  type: TransactionType
+  icon: string | null
+  color: string | null
+}
+
+type CategoryTxRow = {
+  amount: DecimalLike
+  type: TransactionType
+  categoryId: string | null
+}
+
+type MonthlyTxRow = {
+  amount: DecimalLike
+  type: TransactionType
+  date: Date
+}
+
+type AccountIdRow = { id: string }
+
+type GroupByRow = {
+  type: TransactionType
+  _sum: { amount: DecimalLike | null }
+  _count: { _all: number } | null
+}
+
 // 📊 TIPO DE RETORNO PARA AGREGADOS
 interface CategorySummary {
   id: string
@@ -186,18 +216,18 @@ async function getBasicSummary(userId: string, start?: Date, end?: Date) {
 async function getCategorySummary(userId: string, start?: Date, end?: Date) {
   const { start: startDate, end: endDate } = validatePeriod(start, end)
 
-  const categories = await prisma.category.findMany({
+  const categories = (await prisma.category.findMany({
     where: {
       userId,
       isActive: true,
     },
     orderBy: { name: 'asc' },
-  })
+  })) as unknown as CategoryRow[]
 
-  const transactions = await prisma.transaction.findMany({
+  const transactions = (await prisma.transaction.findMany({
     where: {
       userId,
-      categoryId: { in: categories.map(c => c.id) },
+      categoryId: { in: categories.map((c: CategoryRow) => c.id) },
       date: { gte: startDate, lte: endDate },
     },
     select: {
@@ -205,12 +235,12 @@ async function getCategorySummary(userId: string, start?: Date, end?: Date) {
       type: true,
       categoryId: true,
     },
-  })
+  })) as unknown as CategoryTxRow[]
 
   // Agrupar por categoria
   const summaryMap = new Map<string, { id: string; total: number; count: number; type: TransactionType; name: string; icon?: string; color?: string }>()
 
-  categories.forEach(cat => {
+  categories.forEach((cat: CategoryRow) => {
     summaryMap.set(cat.id, {
       id: cat.id,
       name: cat.name,
@@ -222,8 +252,9 @@ async function getCategorySummary(userId: string, start?: Date, end?: Date) {
     })
   })
 
-  transactions.forEach(tx => {
-    const existing = summaryMap.get(tx.categoryId!)
+  transactions.forEach((tx: CategoryTxRow) => {
+    if (!tx.categoryId) return
+    const existing = summaryMap.get(tx.categoryId)
     if (existing) {
       existing.total += Number(tx.amount)
       existing.count += 1
@@ -241,7 +272,7 @@ async function getCategorySummary(userId: string, start?: Date, end?: Date) {
 async function getMonthlySummary(userId: string, start?: Date, end?: Date) {
   const { start: startDate, end: endDate } = validatePeriod(start, end)
 
-  const transactions = await prisma.transaction.findMany({
+  const transactions = (await prisma.transaction.findMany({
     where: {
       userId,
       date: { gte: startDate, lte: endDate },
@@ -251,12 +282,12 @@ async function getMonthlySummary(userId: string, start?: Date, end?: Date) {
       type: true,
       date: true,
     },
-  })
+  })) as unknown as MonthlyTxRow[]
 
   // Agrupar por mês
   const monthlyMap = new Map<string, { year: number; month: number; income: number; expense: number }>()
 
-  transactions.forEach(tx => {
+  transactions.forEach((tx: MonthlyTxRow) => {
     const key = `${tx.date.getFullYear()}-${String(tx.date.getMonth() + 1).padStart(2, '0')}`
     const existing = monthlyMap.get(key) || { year: tx.date.getFullYear(), month: tx.date.getMonth() + 1, income: 0, expense: 0 }
 
@@ -324,7 +355,7 @@ async function getRegularSummary(
     return { income: 0, expense: 0, net: 0, transactionCount: 0 }
   }
 
-  const accountIds = accounts.map((a) => a.id)
+  const accountIds = (accounts as unknown as AccountIdRow[]).map((a: AccountIdRow) => a.id)
 
   const grouped = await prisma.transaction.groupBy({
     by: ['type'],
@@ -340,7 +371,7 @@ async function getRegularSummary(
   let income = 0
   let expense = 0
   let transactionCount = 0
-  for (const row of grouped) {
+  for (const row of grouped as unknown as GroupByRow[]) {
     const sum = row._sum?.amount ? Number(row._sum.amount) : 0
     transactionCount += row._count?._all ?? 0
     if (row.type === 'INCOME') income = sum
@@ -370,7 +401,7 @@ async function getTicketSummary(
     return { income: 0, expense: 0, net: 0, transactionCount: 0 }
   }
 
-  const accountIds = accounts.map((a) => a.id)
+  const accountIds = (accounts as unknown as AccountIdRow[]).map((a: AccountIdRow) => a.id)
 
   const grouped = await prisma.transaction.groupBy({
     by: ['type'],
@@ -386,7 +417,7 @@ async function getTicketSummary(
   let income = 0
   let expense = 0
   let transactionCount = 0
-  for (const row of grouped) {
+  for (const row of grouped as unknown as GroupByRow[]) {
     const sum = row._sum?.amount ? Number(row._sum.amount) : 0
     transactionCount += row._count?._all ?? 0
     if (row.type === 'INCOME') income = sum
