@@ -9,6 +9,13 @@ if (!process.env.NEXTAUTH_SECRET) {
   );
 }
 
+/** Garante que data-URIs nunca entrem no JWT — só URLs curtas. */
+function safeImageUrl(image: string | null | undefined): string | null {
+  if (!image) return null;
+  if (image.startsWith("data:")) return "/api/user/avatar";
+  return image;
+}
+
 class RateLimitedLoginError extends Error {
   constructor(message: string) {
     super(message);
@@ -86,11 +93,12 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
-        token.image = user.image ?? null;
+        // safeImageUrl converte data-URI → "/api/user/avatar" para não inflar o cookie
+        token.image = safeImageUrl(user.image);
       }
       // Chamado por useSession().update({ image }) após upload de avatar
       if (trigger === "update" && session?.image !== undefined) {
-        token.image = session.image;
+        token.image = safeImageUrl(session.image);
       }
       return token;
     },

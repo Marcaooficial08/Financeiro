@@ -4,8 +4,38 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_BYTES = 2 * 1024 * 1024; // 2 MB — base64 ~2.7 MB no banco
+const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 
+/** Serve o avatar do usuário autenticado diretamente do banco. */
+export async function GET(_req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return new NextResponse(null, { status: 401 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { image: true },
+  });
+
+  if (!user?.image?.startsWith("data:")) {
+    return new NextResponse(null, { status: 404 });
+  }
+
+  const commaIdx = user.image.indexOf(",");
+  const mimeType = user.image.slice(5, user.image.indexOf(";"));
+  const buffer = Buffer.from(user.image.slice(commaIdx + 1), "base64");
+
+  return new NextResponse(buffer, {
+    headers: {
+      "Content-Type": mimeType,
+      // Sem cache: cada requisição vai ao banco — garante atualização imediata
+      "Cache-Control": "private, no-store",
+    },
+  });
+}
+
+/** Recebe o upload, salva base64 no banco e retorna uma URL curta. */
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -37,13 +67,13 @@ export async function POST(req: NextRequest) {
   }
 
   const bytes = await file.arrayBuffer();
-  const base64 = Buffer.from(bytes).toString("base64");
-  const dataUrl = `data:${file.type};base64,${base64}`;
+  const dataUrl = `data:${file.type};base64,${Buffer.from(bytes).toString("base64")}`;
 
   await prisma.user.update({
     where: { id: session.user.id },
     data: { image: dataUrl },
   });
 
-  return NextResponse.json({ url: dataUrl });
+  // Retorna URL curta — nunca o base64 — para não inflar o JWT/cookie
+  return NextResponse.json({ url: "/api/user/avatar" });
 }
