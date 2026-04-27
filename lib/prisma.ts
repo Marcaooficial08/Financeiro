@@ -17,3 +17,6 @@ export const prisma =
   new PrismaClient({ adapter })
 
 if (process.env.NODE_ENV !== 'production') global.prisma = prisma
+
+// Tipo do cliente dentro de prisma.$transaction — derivado sem depender do namespace Prisma
+export type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]

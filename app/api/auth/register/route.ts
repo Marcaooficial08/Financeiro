@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { prisma, type PrismaTx } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { withRateLimit } from "@/lib/rate-limiter"
 import { ensureDefaultCategories } from "@/lib/defaults"
@@ -28,7 +28,7 @@ const handler = withRateLimit('/api/auth/register')(async (req: NextRequest, ip:
 
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    const user = await prisma.$transaction(async (tx) => {
+    const user = await prisma.$transaction(async (tx: PrismaTx) => {
       const created = await tx.user.create({
         data: {
           email,

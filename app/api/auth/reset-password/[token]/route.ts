@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { prisma, type PrismaTx } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { validateResetToken, isValidTokenFormat } from "@/lib/token"
 import { withRateLimit } from "@/lib/rate-limiter"
@@ -59,7 +59,7 @@ const handler = withRateLimit('/api/auth/reset-password')(async (req: NextReques
       )
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: PrismaTx) => {
       await tx.user.update({
         where: { id: user.id },
         data: {

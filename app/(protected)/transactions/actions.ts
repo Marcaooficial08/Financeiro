@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { prisma, type PrismaTx } from "@/lib/prisma";
 import { messages } from "@/lib/notifications";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
@@ -93,7 +93,7 @@ export async function createTransaction(formData: FormData) {
       }
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: PrismaTx) => {
       const transaction = await tx.transaction.create({
         data: {
           amount: data.amount,
@@ -241,7 +241,7 @@ export async function updateTransaction(id: string, formData: FormData) {
       }
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: PrismaTx) => {
       if (sameAccount) {
         const delta = newEffect - oldEffect;
         if (delta !== 0) {
@@ -300,7 +300,7 @@ export async function deleteTransaction(id: string) {
       return { success: false, error: "Usuário não autenticado" };
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: PrismaTx) => {
       const transaction = await tx.transaction.findFirst({
         where: { id, userId },
         include: {
