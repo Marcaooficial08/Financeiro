@@ -290,7 +290,7 @@ export default function TransactionsPage() {
   );
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 sm:space-y-8 sm:px-0">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className={`${smallCaps} text-gray-400`}>02 · Movimentações</p>
@@ -317,7 +317,7 @@ export default function TransactionsPage() {
       </header>
 
       {/* Cards segmentados por tipo de conta */}
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className="grid gap-4 sm:grid-cols-2">
         {(Object.keys(groupMeta) as GroupKey[]).map((key) => {
           const meta = groupMeta[key];
           const totals = groupTotals[key];
@@ -352,45 +352,48 @@ export default function TransactionsPage() {
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-2 pl-2">
-                <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-950/40">
+                <div className="min-w-0 rounded-xl border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-950/40">
                   <p
                     className={`${smallCaps} text-gray-500 dark:text-gray-400`}
                   >
                     Receitas
                   </p>
                   <p
-                    className={`mt-1.5 text-base text-emerald-600 dark:text-emerald-400 ${numeral}`}
+                    className={`mt-1.5 truncate text-sm text-emerald-600 sm:text-base dark:text-emerald-400 ${numeral}`}
                     style={tabularStyle}
+                    title={brl(totals.income)}
                   >
                     {brl(totals.income)}
                   </p>
                 </div>
-                <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-950/40">
+                <div className="min-w-0 rounded-xl border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-950/40">
                   <p
                     className={`${smallCaps} text-gray-500 dark:text-gray-400`}
                   >
                     Despesas
                   </p>
                   <p
-                    className={`mt-1.5 text-base text-rose-600 dark:text-rose-400 ${numeral}`}
+                    className={`mt-1.5 truncate text-sm text-rose-600 sm:text-base dark:text-rose-400 ${numeral}`}
                     style={tabularStyle}
+                    title={brl(totals.expense)}
                   >
                     {brl(totals.expense)}
                   </p>
                 </div>
-                <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-950/40">
+                <div className="min-w-0 rounded-xl border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-950/40">
                   <p
                     className={`${smallCaps} text-gray-500 dark:text-gray-400`}
                   >
                     Líquido
                   </p>
                   <p
-                    className={`mt-1.5 text-base ${numeral} ${
+                    className={`mt-1.5 truncate text-sm sm:text-base ${numeral} ${
                       net >= 0
                         ? "text-gray-900 dark:text-white"
                         : "text-rose-600 dark:text-rose-400"
                     }`}
                     style={tabularStyle}
+                    title={brl(net)}
                   >
                     {brl(net)}
                   </p>

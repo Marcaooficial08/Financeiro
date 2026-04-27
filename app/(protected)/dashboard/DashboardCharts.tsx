@@ -428,6 +428,116 @@ export function TicketDonut({
   );
 }
 
+/**
+ * Donut compacto para "Receitas por categoria" / "Despesas por categoria"
+ * dentro de um GroupCard. Mostra label central com total e tooltip com valor + %.
+ */
+export function CategoryDonut({
+  data,
+  centerLabel,
+  centerValue,
+  accent,
+  emptyLabel,
+  height = 220,
+}: {
+  data: CategorySlice[];
+  centerLabel: string;
+  centerValue: string;
+  accent: string;
+  emptyLabel?: string;
+  height?: number;
+}) {
+  if (!data.length) {
+    return (
+      <div
+        className="relative flex items-center justify-center"
+        style={{ height }}
+      >
+        <div
+          className="absolute inset-0 rounded-full opacity-[0.05]"
+          style={{
+            background: `radial-gradient(circle at center, ${accent} 0%, transparent 60%)`,
+          }}
+          aria-hidden
+        />
+        <div className="text-center">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-gray-400">
+            {centerLabel}
+          </p>
+          <p
+            className="mt-1 text-xl font-semibold tabular-nums text-gray-700 dark:text-gray-200"
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {centerValue}
+          </p>
+          <p className="mt-2 text-[11px] text-gray-400">
+            {emptyLabel ?? "Sem dados"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full" style={{ height }}>
+      <ResponsiveContainer width="100%" height={height}>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="total"
+            nameKey="name"
+            cx="50%"
+            cy="50%"
+            outerRadius="78%"
+            innerRadius="56%"
+            paddingAngle={1.5}
+            stroke="white"
+            strokeWidth={1.5}
+            label={({ percent }) =>
+              percent && percent > 0.08
+                ? `${(percent * 100).toFixed(0)}%`
+                : ""
+            }
+            labelLine={false}
+          >
+            {data.map((slice) => (
+              <Cell key={slice.id} fill={slice.color} />
+            ))}
+          </Pie>
+          <Tooltip
+            contentStyle={tooltipStyle}
+            formatter={(value, _name, item) => {
+              const payload = (item as { payload?: CategorySlice })?.payload;
+              const pct =
+                payload?.percent != null
+                  ? `${payload.percent.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    })}%`
+                  : "";
+              return [
+                `${formatBRL(value as number)} · ${pct}`,
+                payload?.name ?? "",
+              ];
+            }}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-2 text-center">
+        <p className="text-[9px] uppercase tracking-[0.22em] text-gray-400">
+          {centerLabel}
+        </p>
+        <p
+          className="mt-0.5 truncate text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg"
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {centerValue}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function CategoryPieChart({
   data,
   emptyLabel,

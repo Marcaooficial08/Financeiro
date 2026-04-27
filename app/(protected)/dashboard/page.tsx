@@ -8,7 +8,7 @@ import {
 import { formatCalendarDateBR } from "@/lib/date";
 import {
   BalanceLineChart,
-  CompositionPieChart,
+  CategoryDonut,
   GroupMonthlyBarChart,
 } from "./DashboardCharts";
 import { DashboardFilters } from "./DashboardFilters";
@@ -164,7 +164,6 @@ function GroupCard({
   yearLabel: string;
 }) {
   const netPositive = group.net >= 0;
-  const totalAbs = group.income + group.expense;
 
   return (
     <article className="relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
@@ -175,7 +174,7 @@ function GroupCard({
       />
 
       <header
-        className="relative overflow-hidden border-b border-gray-100 px-7 py-6 dark:border-gray-800"
+        className="relative overflow-hidden border-b border-gray-100 px-4 py-5 sm:px-7 sm:py-6 dark:border-gray-800"
         style={{
           background: `linear-gradient(135deg, ${group.accent}14 0%, transparent 60%)`,
         }}
@@ -222,7 +221,7 @@ function GroupCard({
         </div>
       </header>
 
-      <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100 dark:divide-gray-800 dark:border-gray-800">
+      <div className="grid grid-cols-1 divide-y divide-gray-100 border-b border-gray-100 sm:grid-cols-3 sm:divide-x sm:divide-y-0 dark:divide-gray-800 dark:border-gray-800">
         <div className="px-5 py-4">
           <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
             Receitas
@@ -263,47 +262,64 @@ function GroupCard({
         </div>
       </div>
 
-      {/* corpo: composition pie + monthly bar */}
-      <div className="grid gap-6 p-6 lg:grid-cols-5">
-        <div className="lg:col-span-2">
-          <div className="mb-2 flex items-baseline justify-between">
-            <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
-              Composição
+      {/* corpo: pizza Receitas + pizza Despesas + barras mensais */}
+      <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="min-w-0">
+          <div className="mb-2 flex items-baseline justify-between gap-2">
+            <p className={`${smallCaps} truncate text-gray-500 dark:text-gray-400`}>
+              Receitas por categoria
             </p>
-            <p className="text-[11px] tabular-nums text-gray-400">
-              Receita + Despesa
+            <p
+              className="shrink-0 text-[11px] tabular-nums text-emerald-600 dark:text-emerald-400"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              {formatBRL(group.income)}
             </p>
           </div>
-          <CompositionPieChart
-            data={group.composition}
-            centerLabel="Volume total"
-            centerValue={formatBRL(totalAbs)}
-            emptyLabel="Sem movimentações no período"
+          <CategoryDonut
+            data={group.incomeByCategory}
+            centerLabel="Receitas"
+            centerValue={formatBRL(group.income)}
+            accent="#10b981"
+            emptyLabel="Sem receitas no período"
           />
-          <div className="mt-2 flex items-center justify-center gap-4 text-[11px] text-gray-500 dark:text-gray-400">
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
-              Receitas
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2 w-2 rounded-full bg-rose-500" aria-hidden />
-              Despesas
-            </span>
-          </div>
         </div>
 
-        <div className="lg:col-span-3">
-          <div className="mb-2 flex items-baseline justify-between">
-            <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
+        <div className="min-w-0">
+          <div className="mb-2 flex items-baseline justify-between gap-2">
+            <p className={`${smallCaps} truncate text-gray-500 dark:text-gray-400`}>
+              Despesas por categoria
+            </p>
+            <p
+              className="shrink-0 text-[11px] tabular-nums text-rose-600 dark:text-rose-400"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              {formatBRL(group.expense)}
+            </p>
+          </div>
+          <CategoryDonut
+            data={group.expenseByCategory}
+            centerLabel="Despesas"
+            centerValue={formatBRL(group.expense)}
+            accent="#ef4444"
+            emptyLabel="Sem despesas no período"
+          />
+        </div>
+
+        <div className="min-w-0 lg:col-span-2 xl:col-span-1">
+          <div className="mb-2 flex items-baseline justify-between gap-2">
+            <p className={`${smallCaps} truncate text-gray-500 dark:text-gray-400`}>
               Receitas × Despesas por mês
             </p>
-            <p className="text-[11px] tabular-nums text-gray-400">{yearLabel}</p>
+            <p className="shrink-0 text-[11px] tabular-nums text-gray-400">
+              {yearLabel}
+            </p>
           </div>
-          <GroupMonthlyBarChart data={group.monthly} height={232} />
+          <GroupMonthlyBarChart data={group.monthly} height={220} />
         </div>
       </div>
 
-      <div className="grid gap-6 border-t border-gray-100 p-6 dark:border-gray-800 lg:grid-cols-2">
+      <div className="grid gap-6 border-t border-gray-100 p-4 sm:p-6 dark:border-gray-800 lg:grid-cols-2">
         <div>
           <div className="mb-3 flex items-baseline justify-between">
             <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
@@ -415,13 +431,13 @@ export default async function DashboardPage({
           }}
           aria-hidden
         />
-        <div className="relative mx-auto max-w-7xl px-6 py-10 lg:px-8">
-          <div className="flex flex-wrap items-end justify-between gap-6">
-            <div>
+        <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+          <div className="flex flex-wrap items-end justify-between gap-4 sm:gap-6">
+            <div className="min-w-0">
               <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
                 Painel financeiro · {monthLabel}
               </p>
-              <h1 className="mt-2 text-4xl font-semibold tracking-tight text-gray-900 dark:text-white">
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl lg:text-4xl dark:text-white">
                 {userName ? `Olá, ${userName}.` : "Dashboard"}
               </h1>
               <p className="mt-2 max-w-xl text-sm text-gray-500 dark:text-gray-400">
@@ -430,12 +446,12 @@ export default async function DashboardPage({
               </p>
             </div>
             <div className="flex items-end gap-6">
-              <div className="text-right">
+              <div className="text-left sm:text-right">
                 <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
                   Saldo consolidado
                 </p>
                 <p
-                  className={`mt-1 text-3xl text-gray-900 dark:text-white ${numeral}`}
+                  className={`mt-1 text-2xl text-gray-900 sm:text-3xl dark:text-white ${numeral}`}
                   style={{ fontVariantNumeric: "tabular-nums" }}
                 >
                   {formatBRL(totalBalance)}
@@ -446,7 +462,7 @@ export default async function DashboardPage({
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-10 px-6 py-10 lg:px-8">
+      <main className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:space-y-10 sm:px-6 sm:py-10 lg:px-8">
         {/* =================== MÊS CORRENTE =================== */}
         <section>
           <div className="mb-5 flex items-baseline justify-between">
@@ -492,9 +508,9 @@ export default async function DashboardPage({
         </section>
 
         {/* =================== EVOLUÇÃO DE SALDO =================== */}
-        <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="mb-4 flex items-baseline justify-between">
-            <div>
+        <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6 dark:border-gray-800 dark:bg-gray-900">
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+            <div className="min-w-0">
               <p className={`${smallCaps} text-gray-400`}>Evolução do saldo</p>
               <h2 className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
                 Últimos 6 meses por bucket
@@ -508,7 +524,7 @@ export default async function DashboardPage({
         </section>
 
         {/* =================== ANÁLISE ANUAL — TOTAIS =================== */}
-        <section className="rounded-3xl border border-gray-200 bg-white p-7 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6 lg:p-7 dark:border-gray-800 dark:bg-gray-900">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className={`${smallCaps} text-gray-400`}>02 · Análise anual</p>
@@ -582,8 +598,8 @@ export default async function DashboardPage({
                 Regulares · Refeição · Combustível · Premiação
               </h2>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Cada grupo exibe pizza com receitas + despesas (cores por tipo)
-                e o comparativo mensal completo do ano selecionado.
+                Cada grupo exibe pizza separada de receitas e de despesas por
+                categoria, além do comparativo mensal completo do ano selecionado.
               </p>
             </div>
           </div>
@@ -602,7 +618,7 @@ export default async function DashboardPage({
         </section>
 
         {/* =================== MOVIMENTAÇÕES =================== */}
-        <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6 dark:border-gray-800 dark:bg-gray-900">
           <div className="mb-4 flex items-baseline justify-between">
             <div>
               <p className={`${smallCaps} text-gray-400`}>04 · Movimentações</p>
@@ -629,24 +645,24 @@ export default async function DashboardPage({
                 .map((tx) => (
                   <li
                     key={tx.id}
-                    className="flex items-center justify-between py-3"
+                    className="flex items-center justify-between gap-3 py-3"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
                       <span className="text-xl" aria-hidden>
                         {tx.categoryIcon ?? (tx.type === "INCOME" ? "⬆️" : "⬇️")}
                       </span>
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-gray-900 dark:text-white">
                           {tx.description ?? "(sem descrição)"}
                         </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                        <p className="truncate text-xs text-gray-500 dark:text-gray-400">
                           {tx.categoryName ?? "Sem categoria"} · {tx.accountName}{" "}
                           · {formatCalendarDateBR(tx.date)}
                         </p>
                       </div>
                     </div>
                     <span
-                      className={`${numeral} ${
+                      className={`shrink-0 ${numeral} ${
                         tx.type === "INCOME"
                           ? "text-emerald-600 dark:text-emerald-400"
                           : "text-rose-600 dark:text-rose-400"
