@@ -1,9 +1,10 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { Prisma, TransactionType } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+
+type TransactionType = "INCOME" | "EXPENSE";
 
 async function requireOwnership(userId: string) {
   const session = await getServerSession(authOptions);
@@ -22,54 +23,57 @@ export async function getMonthlySummary(
 ) {
   try {
     await requireOwnership(userId);
-    const startDateFilter = filters.startDate
-      ? Prisma.sql`AND "date" >= ${filters.startDate}`
-      : Prisma.empty;
 
-    const endDateFilter = filters.endDate
-      ? Prisma.sql`AND "date" <= ${filters.endDate}`
-      : Prisma.empty;
+    const params: unknown[] = [userId];
+    let idx = 2;
+    let dateClause = "";
 
-    const raw = await prisma.$queryRaw<
+    if (filters.startDate) {
+      dateClause += ` AND "date" >= $${idx++}`;
+      params.push(filters.startDate);
+    }
+    if (filters.endDate) {
+      dateClause += ` AND "date" <= $${idx++}`;
+      params.push(filters.endDate);
+    }
+
+    const raw = await prisma.$queryRawUnsafe<
       Array<{
         year: number;
         month: number;
-        totalIncome: Prisma.Decimal;
-        totalExpense: Prisma.Decimal;
-        netBalance: Prisma.Decimal;
-        savingsRate: Prisma.Decimal | null;
+        totalIncome: unknown;
+        totalExpense: unknown;
+        netBalance: unknown;
+        savingsRate: unknown;
       }>
     >(
-      Prisma.sql`
-        SELECT
-          EXTRACT(YEAR FROM "date")::int as year,
-          EXTRACT(MONTH FROM "date")::int as month,
-          SUM(CASE WHEN "type" = 'INCOME' THEN "amount" ELSE 0 END) as "totalIncome",
-          SUM(CASE WHEN "type" = 'EXPENSE' THEN "amount" ELSE 0 END) as "totalExpense",
-          SUM(CASE WHEN "type" = 'INCOME' THEN "amount" ELSE -"amount" END) as "netBalance",
-          CASE
-            WHEN SUM(CASE WHEN "type" = 'INCOME' THEN "amount" ELSE 0 END) = 0 THEN NULL
-            ELSE (
-              SUM(CASE WHEN "type" = 'INCOME' THEN "amount" ELSE 0 END) -
-              SUM(CASE WHEN "type" = 'EXPENSE' THEN "amount" ELSE 0 END)
-            ) / SUM(CASE WHEN "type" = 'INCOME' THEN "amount" ELSE 0 END) * 100
-          END as "savingsRate"
-        FROM "Transaction"
-        WHERE "userId" = ${userId}
-        ${startDateFilter}
-        ${endDateFilter}
-        GROUP BY EXTRACT(YEAR FROM "date"), EXTRACT(MONTH FROM "date")
-        ORDER BY year DESC, month DESC
-      `
+      `SELECT
+        EXTRACT(YEAR FROM "date")::int AS year,
+        EXTRACT(MONTH FROM "date")::int AS month,
+        SUM(CASE WHEN "type" = 'INCOME' THEN "amount" ELSE 0 END) AS "totalIncome",
+        SUM(CASE WHEN "type" = 'EXPENSE' THEN "amount" ELSE 0 END) AS "totalExpense",
+        SUM(CASE WHEN "type" = 'INCOME' THEN "amount" ELSE -"amount" END) AS "netBalance",
+        CASE
+          WHEN SUM(CASE WHEN "type" = 'INCOME' THEN "amount" ELSE 0 END) = 0 THEN NULL
+          ELSE (
+            SUM(CASE WHEN "type" = 'INCOME' THEN "amount" ELSE 0 END) -
+            SUM(CASE WHEN "type" = 'EXPENSE' THEN "amount" ELSE 0 END)
+          ) / SUM(CASE WHEN "type" = 'INCOME' THEN "amount" ELSE 0 END) * 100
+        END AS "savingsRate"
+      FROM "Transaction"
+      WHERE "userId" = $1${dateClause}
+      GROUP BY EXTRACT(YEAR FROM "date"), EXTRACT(MONTH FROM "date")
+      ORDER BY year DESC, month DESC`,
+      ...params
     );
 
-    return raw.map((row: { year: any; month: any; totalIncome: any; totalExpense: any; netBalance: any; savingsRate: any; }) => ({
+    return raw.map((row) => ({
       year: row.year,
       month: row.month,
       totalIncome: Number(row.totalIncome),
       totalExpense: Number(row.totalExpense),
       netBalance: Number(row.netBalance),
-      savingsRate: row.savingsRate ? Number(row.savingsRate) : null,
+      savingsRate: row.savingsRate != null ? Number(row.savingsRate) : null,
     }));
   } catch (error) {
     console.error("Error fetching monthly summary:", error);
@@ -87,51 +91,42 @@ export async function getIncomeVsExpenses(
 ) {
   try {
     await requireOwnership(userId);
-    const where: Prisma.TransactionWhereInput = { userId };
-
-    if (filters.startDate || filters.endDate) {
-      where.date = {};
-      if (filters.startDate) {
-        where.date.gte = filters.startDate;
-      }
-      if (filters.endDate) {
-        where.date.lte = filters.endDate;
-      }
-    }
 
     if (filters.groupByMonth) {
-      const startDateFilter = filters.startDate
-        ? Prisma.sql`AND "date" >= ${filters.startDate}`
-        : Prisma.empty;
+      const params: unknown[] = [userId];
+      let idx = 2;
+      let dateClause = "";
 
-      const endDateFilter = filters.endDate
-        ? Prisma.sql`AND "date" <= ${filters.endDate}`
-        : Prisma.empty;
+      if (filters.startDate) {
+        dateClause += ` AND "date" >= $${idx++}`;
+        params.push(filters.startDate);
+      }
+      if (filters.endDate) {
+        dateClause += ` AND "date" <= $${idx++}`;
+        params.push(filters.endDate);
+      }
 
-      const raw = await prisma.$queryRaw<
+      const raw = await prisma.$queryRawUnsafe<
         Array<{
           year: number;
           month: number;
-          totalIncome: Prisma.Decimal;
-          totalExpense: Prisma.Decimal;
+          totalIncome: unknown;
+          totalExpense: unknown;
         }>
       >(
-        Prisma.sql`
-          SELECT
-            EXTRACT(YEAR FROM "date")::int as year,
-            EXTRACT(MONTH FROM "date")::int as month,
-            SUM(CASE WHEN "type" = 'INCOME' THEN "amount" ELSE 0 END) as "totalIncome",
-            SUM(CASE WHEN "type" = 'EXPENSE' THEN "amount" ELSE 0 END) as "totalExpense"
-          FROM "Transaction"
-          WHERE "userId" = ${userId}
-          ${startDateFilter}
-          ${endDateFilter}
-          GROUP BY EXTRACT(YEAR FROM "date"), EXTRACT(MONTH FROM "date")
-          ORDER BY year DESC, month DESC
-        `
+        `SELECT
+          EXTRACT(YEAR FROM "date")::int AS year,
+          EXTRACT(MONTH FROM "date")::int AS month,
+          SUM(CASE WHEN "type" = 'INCOME' THEN "amount" ELSE 0 END) AS "totalIncome",
+          SUM(CASE WHEN "type" = 'EXPENSE' THEN "amount" ELSE 0 END) AS "totalExpense"
+        FROM "Transaction"
+        WHERE "userId" = $1${dateClause}
+        GROUP BY EXTRACT(YEAR FROM "date"), EXTRACT(MONTH FROM "date")
+        ORDER BY year DESC, month DESC`,
+        ...params
       );
 
-      return raw.map((row: { year: any; month: any; totalIncome: any; totalExpense: any; }) => ({
+      return raw.map((row) => ({
         year: row.year,
         month: row.month,
         totalIncome: Number(row.totalIncome),
@@ -139,12 +134,21 @@ export async function getIncomeVsExpenses(
       }));
     }
 
+    const where: {
+      userId: string;
+      date?: { gte?: Date; lte?: Date };
+    } = { userId };
+
+    if (filters.startDate || filters.endDate) {
+      where.date = {};
+      if (filters.startDate) where.date.gte = filters.startDate;
+      if (filters.endDate) where.date.lte = filters.endDate;
+    }
+
     const grouped = await prisma.transaction.groupBy({
       by: ["type"],
       where,
-      _sum: {
-        amount: true,
-      },
+      _sum: { amount: true },
     });
 
     const totalIncome =
@@ -173,44 +177,46 @@ export async function getExpensesByCategory(
 ) {
   try {
     await requireOwnership(userId);
-    const startDateFilter = filters.startDate
-      ? Prisma.sql`AND t."date" >= ${filters.startDate}`
-      : Prisma.empty;
 
-    const endDateFilter = filters.endDate
-      ? Prisma.sql`AND t."date" <= ${filters.endDate}`
-      : Prisma.empty;
+    const params: unknown[] = [userId];
+    let idx = 2;
+    let extraClause = "";
 
-    const typeFilter = filters.type
-      ? Prisma.sql`AND t."type" = ${filters.type}`
-      : Prisma.empty;
+    if (filters.startDate) {
+      extraClause += ` AND t."date" >= $${idx++}`;
+      params.push(filters.startDate);
+    }
+    if (filters.endDate) {
+      extraClause += ` AND t."date" <= $${idx++}`;
+      params.push(filters.endDate);
+    }
+    if (filters.type) {
+      extraClause += ` AND t."type" = $${idx++}`;
+      params.push(filters.type);
+    }
 
-    const raw = await prisma.$queryRaw<
+    const raw = await prisma.$queryRawUnsafe<
       Array<{
         categoryName: string;
         categoryType: string;
-        totalAmount: Prisma.Decimal;
-        transactionCount: bigint;
+        totalAmount: unknown;
+        transactionCount: bigint | number;
       }>
     >(
-      Prisma.sql`
-        SELECT
-          c."name" as "categoryName",
-          c."type" as "categoryType",
-          SUM(t."amount") as "totalAmount",
-          COUNT(t."id") as "transactionCount"
-        FROM "Transaction" t
-        JOIN "Category" c ON t."categoryId" = c."id"
-        WHERE t."userId" = ${userId}
-        ${startDateFilter}
-        ${endDateFilter}
-        ${typeFilter}
-        GROUP BY c."id", c."name", c."type"
-        ORDER BY "totalAmount" DESC
-      `
+      `SELECT
+        c."name" AS "categoryName",
+        c."type" AS "categoryType",
+        SUM(t."amount") AS "totalAmount",
+        COUNT(t."id") AS "transactionCount"
+      FROM "Transaction" t
+      JOIN "Category" c ON t."categoryId" = c."id"
+      WHERE t."userId" = $1${extraClause}
+      GROUP BY c."id", c."name", c."type"
+      ORDER BY "totalAmount" DESC`,
+      ...params
     );
 
-    return raw.map((row: { categoryName: any; categoryType: any; totalAmount: any; transactionCount: any; }) => ({
+    return raw.map((row) => ({
       categoryName: row.categoryName,
       categoryType: row.categoryType,
       totalAmount: Number(row.totalAmount),
