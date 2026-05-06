@@ -69,9 +69,20 @@ interface TicketSummary {
   transactionCount: number
 }
 
+export interface AccountBreakdown {
+  id: string
+  name: string
+  type: AccountType
+  income: number
+  expense: number
+  net: number
+  transactionCount: number
+}
+
 interface ReportData {
   categories: CategorySummary[]
   monthly: MonthlySummary[]
+  accountBreakdown: AccountBreakdown[]
   totalIncome: number
   totalExpense: number
   netCashflow: number
@@ -92,6 +103,7 @@ interface ReportData {
 export interface PlainReportData {
   categories: CategorySummary[]
   monthly: MonthlySummary[]
+  accountBreakdown: AccountBreakdown[]
   totalIncome: number
   totalExpense: number
   netCashflow: number
@@ -111,6 +123,15 @@ const num = (v: unknown) => {
 /** Converte o retorno de generateReport em um objeto totalmente plano. */
 export function toPlainReport(data: ReportData): PlainReportData {
   return {
+    accountBreakdown: data.accountBreakdown.map((a) => ({
+      id: String(a.id),
+      name: String(a.name),
+      type: a.type,
+      income: num(a.income),
+      expense: num(a.expense),
+      net: num(a.net),
+      transactionCount: num(a.transactionCount),
+    })),
     categories: data.categories.map((c) => ({
       id: String(c.id),
       name: String(c.name),
@@ -335,6 +356,44 @@ function exportToCSV(data: any[], filename: string) {
   return csvRows.join('\n')
 }
 
+// 🏦 DETALHAMENTO POR CONTA INDIVIDUAL
+async function getAccountBreakdown(userId: string, start?: Date, end?: Date): Promise<AccountBreakdown[]> {
+  const { start: startDate, end: endDate } = validatePeriod(start, end)
+
+  const accounts = await prisma.account.findMany({
+    where: { userId },
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true, type: true },
+  })
+
+  if (accounts.length === 0) return []
+
+  const transactions = await prisma.transaction.findMany({
+    where: { userId, date: { gte: startDate, lte: endDate } },
+    select: { accountId: true, amount: true, type: true },
+  })
+
+  const map = new Map<string, AccountBreakdown>()
+  for (const acc of accounts as { id: string; name: string; type: AccountType }[]) {
+    map.set(acc.id, { id: acc.id, name: acc.name, type: acc.type, income: 0, expense: 0, net: 0, transactionCount: 0 })
+  }
+
+  for (const tx of transactions as { accountId: string; amount: DecimalLike; type: TransactionType }[]) {
+    const entry = map.get(tx.accountId)
+    if (!entry) continue
+    const amount = Number(tx.amount)
+    if (tx.type === 'INCOME') entry.income += amount
+    else entry.expense += amount
+    entry.transactionCount += 1
+  }
+
+  for (const entry of map.values()) entry.net = entry.income - entry.expense
+
+  return [...map.values()]
+    .filter((a) => a.transactionCount > 0)
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }))
+}
+
 // Tipos de conta considerados "ticket-benefício" — excluídos do grupo regular.
 const TICKET_ACCOUNT_TYPES: AccountType[] = ['TICKET_MEAL', 'TICKET_FUEL', 'TICKET_AWARD']
 
@@ -431,7 +490,7 @@ async function getTicketSummary(
 export async function generateReport(userId: string, start?: Date, end?: Date): Promise<ReportData> {
   try {
     const { start: startDate, end: endDate } = validatePeriod(start, end)
-    const [categories, monthly, basic, regular, ticketMeal, ticketFuel, ticketAward] = await Promise.all([
+    const [categories, monthly, basic, regular, ticketMeal, ticketFuel, ticketAward, accountBreakdown] = await Promise.all([
       getCategorySummary(userId, startDate, endDate),
       getMonthlySummary(userId, startDate, endDate),
       getBasicSummary(userId, startDate, endDate),
@@ -439,6 +498,7 @@ export async function generateReport(userId: string, start?: Date, end?: Date): 
       getTicketSummary(userId, 'TICKET_MEAL', startDate, endDate),
       getTicketSummary(userId, 'TICKET_FUEL', startDate, endDate),
       getTicketSummary(userId, 'TICKET_AWARD', startDate, endDate),
+      getAccountBreakdown(userId, startDate, endDate),
     ])
 
     const totalIncome = categories.filter(c => c.type === 'INCOME').reduce((sum, c) => sum + c.total, 0)
@@ -456,6 +516,7 @@ export async function generateReport(userId: string, start?: Date, end?: Date): 
     return {
       categories,
       monthly,
+      accountBreakdown,
       totalIncome,
       totalExpense,
       netCashflow: basic.netCashflow,

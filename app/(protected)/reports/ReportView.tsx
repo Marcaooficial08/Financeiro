@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import type { PlainReportData } from "@/lib/reports";
+import type { PlainReportData, AccountBreakdown } from "@/lib/reports";
 
 const formatBRL = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -437,6 +437,98 @@ export default function ReportView({ report }: { report: PlainReportData }) {
           <section>
             <SectionHeader
               index="03"
+              title="Detalhes por conta"
+              subtitle="Receitas, despesas e saldo líquido por conta individual no período."
+            />
+            {report.accountBreakdown.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center dark:border-gray-800 dark:bg-gray-900">
+                <p className="text-sm text-gray-500 dark:text-gray-500">
+                  Nenhuma transação no período.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {report.accountBreakdown.map((acc) => {
+                  const accent =
+                    acc.type === "TICKET_MEAL"
+                      ? "#f59e0b"
+                      : acc.type === "TICKET_FUEL"
+                        ? "#e11d48"
+                        : acc.type === "TICKET_AWARD"
+                          ? "#8b5cf6"
+                          : "#6366f1";
+                  const typeLabel: Record<string, string> = {
+                    CHECKING: "Corrente",
+                    SAVINGS: "Poupança",
+                    CASH: "Dinheiro",
+                    CREDIT_CARD: "Cartão",
+                    INVESTMENT: "Investimento",
+                    OTHER: "Outro",
+                    TICKET_MEAL: "Ticket Refeição",
+                    TICKET_FUEL: "Ticket Combustível",
+                    TICKET_AWARD: "Ticket Premiação",
+                  };
+                  const netPositive = acc.net >= 0;
+                  return (
+                    <div
+                      key={acc.id}
+                      className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"
+                    >
+                      <span
+                        className="absolute inset-y-0 left-0 w-1"
+                        style={{ background: accent }}
+                        aria-hidden
+                      />
+                      <div className="mb-4 flex items-start justify-between gap-3 pl-2">
+                        <div className="min-w-0">
+                          <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
+                            {typeLabel[acc.type] ?? acc.type}
+                          </p>
+                          <h4 className="mt-1 truncate text-base font-semibold tracking-tight text-gray-900 dark:text-white">
+                            {acc.name}
+                          </h4>
+                        </div>
+                        <span className="shrink-0 rounded-full border border-gray-200 px-2.5 py-0.5 text-[10px] font-medium text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                          {acc.transactionCount} mov.
+                        </span>
+                      </div>
+                      <dl className="space-y-2 pl-2 text-sm">
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-800 dark:bg-gray-950/40">
+                          <dt className={`${smallCaps} shrink-0 text-gray-500 dark:text-gray-400`}>Receitas</dt>
+                          <dd className={`${numeral} whitespace-nowrap text-sm text-emerald-600 dark:text-emerald-400`} style={tabularStyle}>
+                            {formatBRL(acc.income)}
+                          </dd>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-800 dark:bg-gray-950/40">
+                          <dt className={`${smallCaps} shrink-0 text-gray-500 dark:text-gray-400`}>Despesas</dt>
+                          <dd className={`${numeral} whitespace-nowrap text-sm text-rose-600 dark:text-rose-400`} style={tabularStyle}>
+                            {formatBRL(acc.expense)}
+                          </dd>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-800 dark:bg-gray-950/40">
+                          <dt className={`${smallCaps} shrink-0 text-gray-500 dark:text-gray-400`}>Líquido</dt>
+                          <dd
+                            className={`${numeral} whitespace-nowrap text-sm ${
+                              netPositive
+                                ? "text-gray-900 dark:text-white"
+                                : "text-rose-600 dark:text-rose-400"
+                            }`}
+                            style={tabularStyle}
+                          >
+                            {formatBRL(acc.net)}
+                          </dd>
+                        </div>
+                      </dl>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section>
+            <SectionHeader
+              index="04"
               title="Agrupamento por categoria"
               subtitle="Top 10 categorias no período selecionado, por volume financeiro."
             />
@@ -510,7 +602,7 @@ export default function ReportView({ report }: { report: PlainReportData }) {
 
           <section>
             <SectionHeader
-              index="04"
+              index="05"
               title="Resumo mensal"
               subtitle="Evolução dos saldos ao longo do tempo."
             />

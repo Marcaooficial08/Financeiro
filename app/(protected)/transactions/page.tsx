@@ -289,6 +289,35 @@ export default function TransactionsPage() {
     a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }),
   );
 
+  // Group transactions by account, sorted alphabetically
+  type TxWithRel = (typeof transactions)[number];
+  const txByAccount = new Map<
+    string,
+    { account: Account; txs: TxWithRel[]; income: number; expense: number }
+  >();
+  for (const t of transactions) {
+    const amount = Number(t.amount);
+    const entry = txByAccount.get(t.accountId);
+    if (entry) {
+      entry.txs.push(t);
+      if (t.type === "INCOME") entry.income += amount;
+      else entry.expense += amount;
+    } else {
+      txByAccount.set(t.accountId, {
+        account: t.account,
+        txs: [t],
+        income: t.type === "INCOME" ? amount : 0,
+        expense: t.type === "EXPENSE" ? amount : 0,
+      });
+    }
+  }
+  const accountGroups = [...txByAccount.values()].sort((a, b) =>
+    a.account.name.localeCompare(b.account.name, "pt-BR", { sensitivity: "base" }),
+  );
+  for (const g of accountGroups) {
+    g.txs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 sm:space-y-8 sm:px-0">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -688,88 +717,124 @@ export default function TransactionsPage() {
           </div>
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
-            {[...transactions]
-              .sort((a, b) =>
-                (a.description ?? "").localeCompare(
-                  b.description ?? "",
-                  "pt-BR",
-                  { sensitivity: "base" },
-                ),
-              )
-              .map((transaction) => {
-                const isIncome = transaction.type === "INCOME";
-                const accent = isIncome ? "#10b981" : "#ef4444";
-                const isEditing = editingId === transaction.id;
-                return (
-                  <div
-                    key={transaction.id}
-                    className={`group relative flex items-center justify-between gap-2 px-4 py-4 sm:gap-4 sm:px-6 transition hover:bg-gray-50/60 dark:hover:bg-gray-800/40 ${
-                      isEditing
-                        ? "bg-indigo-50/40 dark:bg-indigo-950/20"
-                        : ""
-                    }`}
-                  >
-                    <div
-                      className="absolute inset-y-2 left-0 w-[3px] rounded-r-full opacity-70"
-                      style={{ background: accent }}
+            {accountGroups.map(({ account, txs, income, expense }) => {
+              const net = income - expense;
+              const accentColor = groupMeta[groupOf(account.type)].accent;
+              return (
+                <div key={account.id}>
+                  {/* Account group header */}
+                  <div className="relative flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/70 px-6 py-3 dark:border-gray-800 dark:bg-gray-900/60">
+                    <span
+                      className="absolute inset-y-0 left-0 w-1"
+                      style={{ background: accentColor }}
                       aria-hidden
                     />
-                    <div className="min-w-0 flex-1 pl-3">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl" aria-hidden>
-                          {transaction.category.icon ??
-                            (isIncome ? "⬆️" : "⬇️")}
-                        </span>
-                        <div className="min-w-0">
-                          <h3 className="truncate font-medium text-gray-900 dark:text-gray-100">
-                            {transaction.description || "(sem descrição)"}
-                          </h3>
-                          <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                            <span>{transaction.category.name}</span>
-                            <span
-                              className="inline-block h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-700"
-                              aria-hidden
-                            />
-                            <span>{transaction.account.name}</span>
-                            <span
-                              className="inline-block h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-700"
-                              aria-hidden
-                            />
-                            <span className="tabular-nums">
-                              {formatCalendarDateBR(transaction.date)}
-                            </span>
-                          </p>
-                        </div>
-                      </div>
+                    <div className="pl-3">
+                      <p className={`${smallCaps} text-gray-400 dark:text-gray-500`}>
+                        Conta
+                      </p>
+                      <h3 className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">
+                        {account.name}
+                      </h3>
                     </div>
-                    <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
+                    <div className="flex flex-wrap items-center gap-2 text-xs" style={tabularStyle}>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                        {brl(income)}
+                      </span>
+                      <span className="text-gray-300 dark:text-gray-700" aria-hidden>·</span>
+                      <span className="text-rose-600 dark:text-rose-400 font-medium">
+                        −{brl(expense)}
+                      </span>
+                      <span className="text-gray-300 dark:text-gray-700" aria-hidden>·</span>
                       <span
-                        className={`text-sm sm:text-base ${numeral} ${
-                          isIncome
-                            ? "text-emerald-600 dark:text-emerald-400"
+                        className={`font-semibold ${
+                          net >= 0
+                            ? "text-gray-900 dark:text-white"
                             : "text-rose-600 dark:text-rose-400"
                         }`}
-                        style={tabularStyle}
                       >
-                        {isIncome ? "+" : "−"}{" "}
-                        {brl(Number(transaction.amount))}
+                        {brl(net)}
                       </span>
-                      <button
-                        onClick={() => startEdit(transaction)}
-                        className="rounded-lg px-1.5 py-1 text-xs text-indigo-600 transition hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/40 sm:px-2.5 sm:py-1.5"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => handleDelete(transaction.id)}
-                        className="rounded-lg px-1.5 py-1 text-xs text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 sm:px-2.5 sm:py-1.5"
-                      >
-                        Excluir
-                      </button>
+                      <span className="rounded-full border border-gray-200 px-2 py-0.5 text-[10px] text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                        {txs.length} mov.
+                      </span>
                     </div>
                   </div>
-                );
-              })}
+                  {/* Transactions in group */}
+                  <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {txs.map((transaction) => {
+                      const isIncome = transaction.type === "INCOME";
+                      const accent = isIncome ? "#10b981" : "#ef4444";
+                      const isEditing = editingId === transaction.id;
+                      return (
+                        <div
+                          key={transaction.id}
+                          className={`group relative flex items-center justify-between gap-2 px-4 py-4 sm:gap-4 sm:px-6 transition hover:bg-gray-50/60 dark:hover:bg-gray-800/40 ${
+                            isEditing
+                              ? "bg-indigo-50/40 dark:bg-indigo-950/20"
+                              : ""
+                          }`}
+                        >
+                          <div
+                            className="absolute inset-y-2 left-0 w-[3px] rounded-r-full opacity-70"
+                            style={{ background: accent }}
+                            aria-hidden
+                          />
+                          <div className="min-w-0 flex-1 pl-3">
+                            <div className="flex items-center gap-3">
+                              <span className="text-xl" aria-hidden>
+                                {transaction.category.icon ??
+                                  (isIncome ? "⬆️" : "⬇️")}
+                              </span>
+                              <div className="min-w-0">
+                                <h3 className="truncate font-medium text-gray-900 dark:text-gray-100">
+                                  {transaction.description || "(sem descrição)"}
+                                </h3>
+                                <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                  <span>{transaction.category.name}</span>
+                                  <span
+                                    className="inline-block h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-700"
+                                    aria-hidden
+                                  />
+                                  <span className="tabular-nums">
+                                    {formatCalendarDateBR(transaction.date)}
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
+                            <span
+                              className={`text-sm sm:text-base ${numeral} ${
+                                isIncome
+                                  ? "text-emerald-600 dark:text-emerald-400"
+                                  : "text-rose-600 dark:text-rose-400"
+                              }`}
+                              style={tabularStyle}
+                            >
+                              {isIncome ? "+" : "−"}{" "}
+                              {brl(Number(transaction.amount))}
+                            </span>
+                            <button
+                              onClick={() => startEdit(transaction)}
+                              className="rounded-lg px-1.5 py-1 text-xs text-indigo-600 transition hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/40 sm:px-2.5 sm:py-1.5"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleDelete(transaction.id)}
+                              className="rounded-lg px-1.5 py-1 text-xs text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 sm:px-2.5 sm:py-1.5"
+                            >
+                              Excluir
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

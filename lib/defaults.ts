@@ -211,14 +211,8 @@ export function validateCategoryOnAccount(
 
     default:
       // Contas regulares (CHECKING, SAVINGS, CASH, CREDIT_CARD, INVESTMENT, OTHER):
-      // bloqueia qualquer categoria roteada a ticket.
-      if (systemKey && TICKET_SYSTEM_KEYS.has(systemKey)) {
-        return {
-          ok: false,
-          error:
-            "Categorias de ticket (Refeição, Combustível, Premiação, Vale Transporte) só podem ser usadas em contas do tipo correspondente.",
-        };
-      }
+      // sem restrição de categoria — a conta determina o saldo afetado,
+      // a categoria serve apenas para classificação.
       return { ok: true };
   }
 }
