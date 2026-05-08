@@ -267,24 +267,6 @@ export default function TransactionsPage() {
     );
   }
 
-  const groupTotals: Record<
-    GroupKey,
-    { income: number; expense: number; count: number }
-  > = {
-    regular: { income: 0, expense: 0, count: 0 },
-    meal: { income: 0, expense: 0, count: 0 },
-    fuel: { income: 0, expense: 0, count: 0 },
-    award: { income: 0, expense: 0, count: 0 },
-  };
-
-  for (const t of transactions) {
-    const key = groupOf(t.account.type);
-    const amount = Number(t.amount);
-    if (t.type === "INCOME") groupTotals[key].income += amount;
-    else groupTotals[key].expense += amount;
-    groupTotals[key].count += 1;
-  }
-
   const sortedAccounts = [...accounts].sort((a, b) =>
     a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }),
   );
@@ -315,7 +297,9 @@ export default function TransactionsPage() {
     a.account.name.localeCompare(b.account.name, "pt-BR", { sensitivity: "base" }),
   );
   for (const g of accountGroups) {
-    g.txs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    g.txs.sort((a, b) =>
+      (a.description ?? "").localeCompare(b.description ?? "", "pt-BR", { sensitivity: "base" }),
+    );
   }
 
   return (
@@ -345,93 +329,89 @@ export default function TransactionsPage() {
         </button>
       </header>
 
-      {/* Cards segmentados por tipo de conta */}
-      <section className="grid gap-4 sm:grid-cols-2">
-        {(Object.keys(groupMeta) as GroupKey[]).map((key) => {
-          const meta = groupMeta[key];
-          const totals = groupTotals[key];
-          const net = totals.income - totals.expense;
-          return (
-            <div
-              key={key}
-              className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"
-            >
-              <span
-                className="absolute inset-y-0 left-0 w-1"
-                style={{ background: meta.accent }}
-                aria-hidden
-              />
-              <div className="mb-4 flex items-center justify-between pl-2">
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className={`inline-block h-2 w-2 rounded-full ${meta.dot}`}
-                    aria-hidden
-                  />
-                  <div>
+      {/* Cards por conta individual — ordenados alfabeticamente */}
+      {accountGroups.length > 0 && (
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {accountGroups.map(({ account, income, expense, txs }) => {
+            const net = income - expense;
+            const accentColor = groupMeta[groupOf(account.type)].accent;
+            const dot = groupMeta[groupOf(account.type)].dot;
+            return (
+              <div
+                key={account.id}
+                className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"
+              >
+                <span
+                  className="absolute inset-y-0 left-0 w-1"
+                  style={{ background: accentColor }}
+                  aria-hidden
+                />
+                <div className="mb-4 flex items-center justify-between pl-2">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className={`inline-block h-2 w-2 rounded-full ${dot}`}
+                      aria-hidden
+                    />
+                    <div>
+                      <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
+                        Conta
+                      </p>
+                      <h3 className="mt-0.5 text-base font-semibold tracking-tight text-gray-900 dark:text-white">
+                        {account.name}
+                      </h3>
+                    </div>
+                  </div>
+                  <span className="rounded-full border border-gray-200 px-2.5 py-0.5 text-[10px] font-medium text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                    {txs.length} mov.
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 pl-2">
+                  <div className="min-w-0 rounded-xl border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-950/40">
                     <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
-                      Resumo
+                      Receitas
                     </p>
-                    <h3 className="mt-0.5 text-base font-semibold tracking-tight text-gray-900 dark:text-white">
-                      {meta.label}
-                    </h3>
+                    <p
+                      className={`mt-1.5 truncate text-sm text-emerald-600 sm:text-base dark:text-emerald-400 ${numeral}`}
+                      style={tabularStyle}
+                      title={brl(income)}
+                    >
+                      {brl(income)}
+                    </p>
+                  </div>
+                  <div className="min-w-0 rounded-xl border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-950/40">
+                    <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
+                      Despesas
+                    </p>
+                    <p
+                      className={`mt-1.5 truncate text-sm text-rose-600 sm:text-base dark:text-rose-400 ${numeral}`}
+                      style={tabularStyle}
+                      title={brl(expense)}
+                    >
+                      {brl(expense)}
+                    </p>
+                  </div>
+                  <div className="min-w-0 rounded-xl border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-950/40">
+                    <p className={`${smallCaps} text-gray-500 dark:text-gray-400`}>
+                      Líquido
+                    </p>
+                    <p
+                      className={`mt-1.5 truncate text-sm sm:text-base ${numeral} ${
+                        net >= 0
+                          ? "text-gray-900 dark:text-white"
+                          : "text-rose-600 dark:text-rose-400"
+                      }`}
+                      style={tabularStyle}
+                      title={brl(net)}
+                    >
+                      {brl(net)}
+                    </p>
                   </div>
                 </div>
-                <span className="rounded-full border border-gray-200 px-2.5 py-0.5 text-[10px] font-medium text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                  {totals.count} mov.
-                </span>
               </div>
-              <div className="grid grid-cols-3 gap-2 pl-2">
-                <div className="min-w-0 rounded-xl border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-950/40">
-                  <p
-                    className={`${smallCaps} text-gray-500 dark:text-gray-400`}
-                  >
-                    Receitas
-                  </p>
-                  <p
-                    className={`mt-1.5 truncate text-sm text-emerald-600 sm:text-base dark:text-emerald-400 ${numeral}`}
-                    style={tabularStyle}
-                    title={brl(totals.income)}
-                  >
-                    {brl(totals.income)}
-                  </p>
-                </div>
-                <div className="min-w-0 rounded-xl border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-950/40">
-                  <p
-                    className={`${smallCaps} text-gray-500 dark:text-gray-400`}
-                  >
-                    Despesas
-                  </p>
-                  <p
-                    className={`mt-1.5 truncate text-sm text-rose-600 sm:text-base dark:text-rose-400 ${numeral}`}
-                    style={tabularStyle}
-                    title={brl(totals.expense)}
-                  >
-                    {brl(totals.expense)}
-                  </p>
-                </div>
-                <div className="min-w-0 rounded-xl border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-950/40">
-                  <p
-                    className={`${smallCaps} text-gray-500 dark:text-gray-400`}
-                  >
-                    Líquido
-                  </p>
-                  <p
-                    className={`mt-1.5 truncate text-sm sm:text-base ${numeral} ${
-                      net >= 0
-                        ? "text-gray-900 dark:text-white"
-                        : "text-rose-600 dark:text-rose-400"
-                    }`}
-                    style={tabularStyle}
-                    title={brl(net)}
-                  >
-                    {brl(net)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </section>
+            );
+          })}
+        </section>
+      )}
 
       {message && (
         <div

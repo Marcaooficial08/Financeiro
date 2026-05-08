@@ -501,8 +501,8 @@ export async function generateReport(userId: string, start?: Date, end?: Date): 
       getAccountBreakdown(userId, startDate, endDate),
     ])
 
-    const totalIncome = categories.filter(c => c.type === 'INCOME').reduce((sum, c) => sum + c.total, 0)
-    const totalExpense = categories.filter(c => c.type === 'EXPENSE').reduce((sum, c) => sum + c.total, 0)
+    const totalIncome = basic.totalIncome
+    const totalExpense = basic.totalExpense
 
     // Compatibilidade: campo legado `ticket` agregando os três.
     const ticket: TicketSummary = {
