@@ -297,9 +297,7 @@ export default function TransactionsPage() {
     a.account.name.localeCompare(b.account.name, "pt-BR", { sensitivity: "base" }),
   );
   for (const g of accountGroups) {
-    g.txs.sort((a, b) =>
-      (a.description ?? "").localeCompare(b.description ?? "", "pt-BR", { sensitivity: "base" }),
-    );
+    g.txs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 
   return (
